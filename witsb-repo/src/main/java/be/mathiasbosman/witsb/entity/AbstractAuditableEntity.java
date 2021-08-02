@@ -1,11 +1,10 @@
-package be.mathiasbosman.entity;
+package be.mathiasbosman.witsb.entity;
 
 import java.time.LocalDateTime;
 import javax.persistence.Column;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
-import lombok.Getter;
 import lombok.ToString;
 import org.springframework.data.domain.Sort;
 

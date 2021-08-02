@@ -1,4 +1,4 @@
-package be.mathiasbosman.entity;
+package be.mathiasbosman.witsb.entity;
 
 import org.springframework.data.domain.Sort;
 

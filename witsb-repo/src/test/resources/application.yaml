@@ -1,0 +1,11 @@
+spring:
+  main:
+    banner-mode: off
+  jpa:
+    show-sql: true
+logging:
+  level:
+    root: error
+    be.mathiasbosman.witsb: trace
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql.BasicBinder: trace

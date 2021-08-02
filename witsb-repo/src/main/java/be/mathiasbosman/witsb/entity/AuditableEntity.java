@@ -1,4 +1,4 @@
-package be.mathiasbosman.entity;
+package be.mathiasbosman.witsb.entity;
 
 import java.time.LocalDateTime;
 

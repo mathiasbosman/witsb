@@ -1,48 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://maven.apache.org/POM/4.0.0"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <artifactId>witsb-api</artifactId>
+  <dependencies>
+    <dependency>
+      <artifactId>witsb-repo</artifactId>
+      <groupId>be.mathiasbosman</groupId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+
+    <dependency>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <artifactId>file-services</artifactId>
+      <groupId>be.mathiasbosman</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>lombok</artifactId>
+      <groupId>org.projectlombok</groupId>
+    </dependency>
+
+    <dependency>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>h2</artifactId>
+      <groupId>com.h2database</groupId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <artifactId>witsb</artifactId>
     <groupId>be.mathiasbosman</groupId>
     <version>0.0.1-SNAPSHOT</version>
   </parent>
-  <modelVersion>4.0.0</modelVersion>
-
-  <artifactId>witsb-api</artifactId>
-
-  <dependencies>
-    <dependency>
-      <groupId>be.mathiasbosman</groupId>
-      <artifactId>witsb-repo</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-configuration-processor</artifactId>
-      <optional>true</optional>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>be.mathiasbosman</groupId>
-      <artifactId>file-services</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-    </dependency>
-  </dependencies>
 </project>

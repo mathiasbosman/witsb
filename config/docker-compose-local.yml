@@ -1,0 +1,18 @@
+version: "3"
+services:
+  witsb-local-db:
+    image: postgres
+    ports:
+      - 7432:5432
+    environment:
+      - POSTGRES_DB=witsb_db
+      - POSTGRES_USER=witsb_dba
+      - POSTGRES_PASSWORD=admin
+  witsb-local-minio:
+    image: minio/minio
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    ports:
+      - 19000:9000
+    command: server /data

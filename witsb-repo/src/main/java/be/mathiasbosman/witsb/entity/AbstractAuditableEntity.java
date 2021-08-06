@@ -6,18 +6,16 @@ import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
 import lombok.ToString;
-import org.springframework.data.domain.Sort;
 
 @ToString
 @MappedSuperclass
-public abstract class AbstractAuditableEntity<K> implements AuditableEntity, WitsbEntity<K> {
-
-  public static final Sort DEFAULT_SORT = Sort.by("id");
+public abstract class AbstractAuditableEntity implements AuditableEntity {
 
   @Column(name = "created")
   private LocalDateTime created;
   @Column(name = "updated")
   private LocalDateTime updated;
+
   @PrePersist
   void prePersist() {
     created = LocalDateTime.now();
@@ -35,10 +33,5 @@ public abstract class AbstractAuditableEntity<K> implements AuditableEntity, Wit
 
   public LocalDateTime getUpdated() {
     return updated;
-  }
-
-  @Override
-  public Sort getDefaultSort() {
-    return DEFAULT_SORT;
   }
 }

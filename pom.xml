@@ -59,7 +59,7 @@
   </profiles>
 
   <properties>
-    <file-services.version>1.0.1-SNAPSHOT</file-services.version>
+    <file-services.version>1.0.1</file-services.version>
     <flyway.version>7.7.3</flyway.version>
     <java.version>11</java.version>
     <lombok.version>1.18.20</lombok.version>

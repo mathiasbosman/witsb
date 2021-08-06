@@ -58,7 +58,7 @@ jobs:
         env:
           GITHUB_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mvn -B package --file pom.xml
+        run: mvn -B package --settings config/mvn-github-settings.xml --file pom.xml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1

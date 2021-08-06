@@ -63,11 +63,15 @@ public class ItemServiceImpl implements ItemService {
   @Override
   public List<Item> autoDelete(int amount, TemporalUnit temporalUnit) {
     Instant threshold = Instant.now().minus(amount, temporalUnit);
-    log.debug("Auto deleting items uploaded before {}", threshold);
+    LocalDateTime uploadedBeforeDate = LocalDateTime.ofInstant(threshold, ZoneId.systemDefault());
+    log.info("Auto deleting items older than {} {} (uploaded before {})",
+        amount, temporalUnit.toString().toLowerCase(), uploadedBeforeDate);
     List<Item> allByUploadedBefore = itemRepository
-        .findAllByUploadedBefore(LocalDateTime.ofInstant(threshold, ZoneId.systemDefault()));
-    return allByUploadedBefore.stream()
+        .findAllByUploadedBefore(uploadedBeforeDate);
+    List<Item> deletedItems = allByUploadedBefore.stream()
         .map(item -> delete(item.getId()))
         .collect(Collectors.toList());
+    log.info("Deleted {} files", deletedItems.size());
+    return deletedItems;
   }
 }

@@ -1,6 +1,4 @@
 spring:
-  jpa:
-    show-sql: true
   datasource:
     driver-class-name: org.postgresql.Driver
     username: witsb_dba
@@ -8,7 +6,6 @@ spring:
     url: jdbc:postgresql://localhost:7432/witsb_db
 logging:
   level:
-    root: error
     be.mathiasbosman.witsb: trace
 witsb:
   fs:

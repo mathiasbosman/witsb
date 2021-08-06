@@ -1,12 +1,10 @@
 package be.mathiasbosman.witsb;
 
 import be.mathiasbosman.fs.service.FileService;
+import be.mathiasbosman.fs.service.aws.s3.AmazonS3Factory;
 import be.mathiasbosman.fs.service.aws.s3.S3FileSystem;
 import be.mathiasbosman.witsb.ApplicationConfig.FileServiceConfig;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.AmazonS3;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,13 +18,16 @@ public class S3Config {
   @Bean
   public FileService fileService() {
     FileServiceConfig fsConfig = applicationConfig.getFs();
-    return new S3FileSystem(AmazonS3ClientBuilder
-        .standard()
-        .withCredentials(new AWSStaticCredentialsProvider(
-            new BasicAWSCredentials(fsConfig.getMinioKey(), fsConfig.getMinioSecret())))
-        .withEndpointConfiguration(
-            new AwsClientBuilder.EndpointConfiguration(fsConfig.getMinioUrl(), null))
-        .withPathStyleAccessEnabled(true)
-        .build(), fsConfig.getMinioBucket());
+    AmazonS3 s3 = AmazonS3Factory.builder()
+        .key(fsConfig.getMinioKey())
+        .secret(fsConfig.getMinioSecret())
+        .bucket(fsConfig.getMinioBucket())
+        .serviceEndpoint(fsConfig.getMinioUrl())
+        .pathStyleAccessEnabled(true)
+        .createBucketIfMissing(true)
+        .build()
+        .toAmazonS3();
+    return new S3FileSystem(s3, fsConfig.getMinioBucket());
+
   }
 }

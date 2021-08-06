@@ -49,15 +49,6 @@
     <version>2.5.3</version> <!-- lookup parent from repository -->
   </parent>
 
-  <profiles>
-    <profile>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <id>github</id>
-    </profile>
-  </profiles>
-
   <properties>
     <file-services.version>1.0.1</file-services.version>
     <flyway.version>7.7.3</flyway.version>

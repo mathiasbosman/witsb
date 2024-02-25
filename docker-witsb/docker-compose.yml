@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  witsb-local-db:
+    image: postgres
+    ports:
+      - '7432:5432'
+    environment:
+      - POSTGRES_DB=witsb_db
+      - POSTGRES_USER=witsb_dba
+      - POSTGRES_PASSWORD=admin

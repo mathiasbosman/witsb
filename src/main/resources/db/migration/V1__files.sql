@@ -1,11 +1,13 @@
 CREATE TABLE files
 (
-    id        UUID         NOT NULL,
-    reference UUID         NOT NULL,
-    filename  VARCHAR(255) NOT NULL,
-    context   VARCHAR(255) NOT NULL,
-    version   INT          NOT NULL,
-    group_id  UUID         NOT NULL
+    id         UUID         NOT NULL,
+    reference  UUID         NOT NULL,
+    filename   VARCHAR(255) NOT NULL,
+    context    VARCHAR(255) NOT NULL,
+    version    INT          NOT NULL,
+    group_id   UUID         NOT NULL,
+    created_on TIMESTAMP    NOT NULL,
+    updated_on TIMESTAMP    NOT NULL
 );
 
 ALTER TABLE files

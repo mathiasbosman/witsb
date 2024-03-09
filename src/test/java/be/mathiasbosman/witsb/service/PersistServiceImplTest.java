@@ -10,7 +10,6 @@ import static org.mockito.Mockito.doNothing;
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.ContainerTest;
 import be.mathiasbosman.witsb.domain.File;
-import be.mathiasbosman.witsb.domain.FileRecord;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -38,29 +37,29 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void upload() {
-    FileRecord record = persistService.upload("contextA", "a.txt", toInputstream("content"));
+    final File record = persistService.upload("contextA", "a.txt", toInputstream("content"));
 
-    assertEquals("contextA", record.context());
-    assertEquals("a.txt", record.fileName());
-    assertEquals(0, record.version());
+    assertEquals("contextA", record.getContext());
+    assertEquals("a.txt", record.getFilename());
+    assertEquals(0, record.getVersion());
 
-    File file = fileRepository.findByReference(record.reference()).orElseThrow();
+    final File file = fileRepository.findByReference(record.getReference()).orElseThrow();
 
     assertNotNull(file.getId());
     assertNotNull(file.getGroupId());
-    assertEquals(file.getReference(), record.reference());
-    assertEquals(file.getVersion(), record.version());
-    assertEquals(file.getContext(), record.context());
+    assertEquals(file.getReference(), record.getReference());
+    assertEquals(file.getVersion(), record.getVersion());
+    assertEquals(file.getContext(), record.getContext());
   }
 
   @Test
   void updateFile() {
-    File testFile = createMockFile();
+    final File testFile = createMockFile();
     fileRepository.save(testFile);
-    File notPersisted = createMockFile();
-    FileRecord newFile = persistService.updateFile(testFile.getReference(),
+    final File notPersisted = createMockFile();
+    final File newFile = persistService.updateFile(testFile.getReference(),
         toInputstream("new content"));
-    File updatedFile = fileRepository.findByReference(newFile.reference()).orElseThrow();
+    final File updatedFile = fileRepository.findByReference(newFile.getReference()).orElseThrow();
 
     assertEquals(testFile.getGroupId(), updatedFile.getGroupId());
     assertEquals(testFile.getVersion() + 1, updatedFile.getVersion());
@@ -73,8 +72,8 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void deleteFile() {
-    File testFile = createMockFile();
-    File testFile2 = createMockFile().toBuilder()
+    final File testFile = createMockFile();
+    final File testFile2 = createMockFile().toBuilder()
         .groupId(testFile.getGroupId())
         .version(testFile.getVersion() + 1)
         .build();
@@ -91,7 +90,7 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void findFile() {
-    File testFile = createMockFile();
+    final File testFile = createMockFile();
     fileRepository.save(testFile);
 
     Optional<File> result = persistService.findFile(testFile.getReference());
@@ -101,18 +100,37 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void findFile_ByVersion() {
-    File testFile = createMockFile();
+    final File testFile = createMockFile();
     fileRepository.save(testFile);
 
     assertTrue(persistService.findFile(testFile.getReference(), testFile.getVersion()).isPresent());
     assertTrue(persistService.findFile(testFile.getReference(), 99).isEmpty());
   }
 
-  private File createMockFile() {
+  @Test
+  void getAllVersions() {
+    UUID mockGroupId = UUID.randomUUID();
+    final File file0 = createMockFile(mockGroupId, 0);
+    final File file1 = createMockFile(mockGroupId, 1);
+    final File file2 = createMockFile(mockGroupId, 2);
+    final File file3 = createMockFile(mockGroupId, 3);
+    fileRepository.saveAll(List.of(file3, file2, file0, file1));
+
+    List<File> allVersions = persistService.getAllVersions(mockGroupId);
+
+    assertEquals(List.of(file0, file1, file2, file3), allVersions);
+  }
+
+  private File createMockFile(UUID groupId, int version) {
     return File.builder()
         .context("foo")
-        .groupId(UUID.randomUUID())
+        .groupId(groupId)
+        .version(version)
         .filename("bar")
         .build();
+  }
+
+  private File createMockFile() {
+    return createMockFile(UUID.randomUUID(), 0);
   }
 }

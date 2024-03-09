@@ -8,6 +8,7 @@ import be.mathiasbosman.witsb.service.PersistService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -40,14 +41,16 @@ public class FileController {
   public FileRecord upload(@PathVariable String context,
       @RequestParam("file") MultipartFile multipartFile)
       throws IOException {
-    return persistService.upload(context, multipartFile.getName(), multipartFile.getInputStream());
+    return FileRecord.fromEntity(
+        persistService.upload(context, multipartFile.getName(), multipartFile.getInputStream()));
   }
 
   @PutMapping(value = "/{reference}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public FileRecord update(@PathVariable UUID reference,
       @RequestParam("file") MultipartFile multipartFile)
       throws IOException {
-    return persistService.updateFile(reference, multipartFile.getInputStream());
+    return FileRecord.fromEntity(
+        persistService.updateFile(reference, multipartFile.getInputStream()));
   }
 
   @GetMapping("/{reference}")
@@ -69,6 +72,13 @@ public class FileController {
   @DeleteMapping("/{reference}")
   public void delete(@PathVariable UUID reference) {
     persistService.deleteFile(reference);
+  }
+
+  @GetMapping("/group/{groupId}")
+  public List<FileRecord> listGroup(@PathVariable UUID groupId) {
+    return persistService.getAllVersions(groupId).stream()
+        .map(FileRecord::fromEntity)
+        .toList();
   }
 
   private void writeFileStream(File file, HttpServletResponse response) {

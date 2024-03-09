@@ -3,13 +3,14 @@ package be.mathiasbosman.witsb.service;
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
-import be.mathiasbosman.witsb.domain.FileRecord;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,33 +22,25 @@ public class PersistServiceImpl implements PersistService {
   private final FileService fileService;
   private final FileRepository fileRepository;
 
-  static FileRecord fromEntity(File file) {
-    return new FileRecord(file.getFilename(), file.getContext(), file.getReference(),
-        file.getVersion());
+  @Override
+  @Transactional
+  public File upload(String context, String name, InputStream inputStream) {
+    return saveFile(context, name, inputStream, 0, UUID.randomUUID());
   }
 
   @Override
   @Transactional
-  public FileRecord upload(String context, String name, InputStream inputStream) {
-    File file = saveFile(context, name, inputStream, 0, UUID.randomUUID());
-    return fromEntity(file);
-  }
-
-  @Override
-  @Transactional
-  public FileRecord updateFile(UUID reference, InputStream inputStream) {
-    File latestFile = getLatestVersion(reference);
-    int newVersion = latestFile.getVersion() + 1;
-    File newFile = saveFile(latestFile.getContext(), latestFile.getFilename(), inputStream,
-        newVersion, latestFile.getGroupId());
-    return fromEntity(newFile);
+  public File updateFile(UUID reference, InputStream inputStream) {
+    final File latestFile = getLatestVersion(reference);
+    return saveFile(latestFile.getContext(), latestFile.getFilename(), inputStream,
+        latestFile.getVersion() + 1, latestFile.getGroupId());
   }
 
   @Override
   @Transactional
   public void deleteFile(UUID reference) {
-    File file = fileRepository.findByReference(reference).orElseThrow();
-    fileRepository.findByGroupId(file.getGroupId()).forEach(this::delete);
+    final File file = fileRepository.findByReference(reference).orElseThrow();
+    fileRepository.getByGroupId(file.getGroupId()).forEach(this::delete);
   }
 
   private void delete(File file) {
@@ -65,7 +58,7 @@ public class PersistServiceImpl implements PersistService {
   @Override
   @Transactional(readOnly = true)
   public Optional<File> findFile(UUID reference, int version) {
-    File file = fileRepository.findByReference(reference).orElseThrow();
+    final File file = fileRepository.findByReference(reference).orElseThrow();
     return fileRepository.findByGroupIdAndVersion(file.getGroupId(), version);
   }
 
@@ -74,8 +67,14 @@ public class PersistServiceImpl implements PersistService {
     return FileServiceUtils.combine(file.getContext(), file.getReference().toString());
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public List<File> getAllVersions(UUID groupId) {
+    return fileRepository.getByGroupId(groupId, Sort.by("version"));
+  }
+
   private File getLatestVersion(UUID reference) {
-    File file = fileRepository.findByReference(reference).orElseThrow();
+    final File file = fileRepository.findByReference(reference).orElseThrow();
     return fileRepository.getFirstByGroupIdOrderByVersionDesc(file.getGroupId());
   }
 

@@ -1,5 +1,7 @@
 package be.mathiasbosman.witsb.controller;
 
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -7,6 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import be.mathiasbosman.fs.core.service.FileService;
@@ -16,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.io.IOUtils;
@@ -58,6 +62,8 @@ class FileControllerTest {
 
   @Test
   void upload() throws Exception {
+    when(persistService.upload(any(), any(), any())).thenReturn(mockFile());
+
     mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
             .file(mockMultiPartFile()))
         .andExpect(status().isOk());
@@ -68,6 +74,8 @@ class FileControllerTest {
   @Test
   void update() throws Exception {
     final UUID mockReference = UUID.randomUUID();
+    when(persistService.updateFile(eq(mockReference), any(InputStream.class)))
+        .thenReturn(mockFile());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/" + mockReference)
             .file(mockMultiPartFile())
@@ -99,9 +107,7 @@ class FileControllerTest {
     try (MockedStatic<IOUtils> mockedIOUtils = Mockito.mockStatic(IOUtils.class)) {
       mockedIOUtils.when(() -> IOUtils.copy(any(InputStream.class), any(OutputStream.class)))
           .thenThrow(new IOException("Mocked IOException"));
-      final File mockFile = File.builder()
-          .filename("file.xml")
-          .build();
+      final File mockFile = mockFile();
       mockDownload(mockFile);
 
       mvc.perform(get("/api/" + mockFile.getReference()))
@@ -119,9 +125,7 @@ class FileControllerTest {
 
   @Test
   void download_ByVersion() throws Exception {
-    File mockFile = File.builder()
-        .filename("foo.txt")
-        .build();
+    final File mockFile = mockFile();
     mockDownload(mockFile);
     when(persistService.findFile(mockFile.getReference(), mockFile.getVersion()))
         .thenReturn(Optional.of(mockFile));
@@ -137,6 +141,29 @@ class FileControllerTest {
     mvc.perform(MockMvcRequestBuilders.delete("/api/" + mockReference));
 
     verify(persistService).deleteFile(mockReference);
+  }
+
+  @Test
+  void listGroup() throws Exception {
+    final File fileA = mockFile();
+    final File fileB = mockFile();
+    final File fileC = mockFile();
+
+    when(persistService.getAllVersions(any()))
+        .thenReturn(List.of(fileA, fileB, fileC));
+
+    mvc.perform(get("/api/group/" + UUID.randomUUID()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(3)))
+        .andExpect(jsonPath("$[0].reference", is(fileA.getReference().toString())))
+        .andExpect(jsonPath("$[1].reference", is(fileB.getReference().toString())))
+        .andExpect(jsonPath("$[2].reference", is(fileC.getReference().toString())));
+  }
+
+  private File mockFile() {
+    return File.builder()
+        .filename("foo.txt")
+        .build();
   }
 
   private void mockDownload(File file) {

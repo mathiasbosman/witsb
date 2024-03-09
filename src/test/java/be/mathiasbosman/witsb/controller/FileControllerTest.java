@@ -126,7 +126,7 @@ class FileControllerTest {
     when(persistService.findFile(mockFile.getReference(), mockFile.getVersion()))
         .thenReturn(Optional.of(mockFile));
 
-    mvc.perform(get("/api/" + mockFile.getReference()).param("v", "0"))
+    mvc.perform(get("/api/" + mockFile.getReference()).param("version", "0"))
         .andExpect(status().isOk());
   }
 

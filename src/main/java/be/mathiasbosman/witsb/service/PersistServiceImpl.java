@@ -36,30 +36,24 @@ public class PersistServiceImpl implements PersistService {
   @Override
   @Transactional
   public FileRecord updateFile(UUID reference, InputStream inputStream) {
-    File latestlFile = getLatestVersion(reference);
-    int newVersion = latestlFile.getVersion() + 1;
-    File newFile = saveFile(latestlFile.getContext(), latestlFile.getFilename(), inputStream,
-        newVersion, latestlFile.getGroupId());
+    File latestFile = getLatestVersion(reference);
+    int newVersion = latestFile.getVersion() + 1;
+    File newFile = saveFile(latestFile.getContext(), latestFile.getFilename(), inputStream,
+        newVersion, latestFile.getGroupId());
     return fromEntity(newFile);
   }
 
   @Override
   @Transactional
   public void deleteFile(UUID reference) {
-    File file = findFile(reference).orElseThrow();
-    fileRepository.findByGroupId(file.getGroupId())
-        .forEach(this::delete);
+    File file = fileRepository.findByReference(reference).orElseThrow();
+    fileRepository.findByGroupId(file.getGroupId()).forEach(this::delete);
   }
 
   private void delete(File file) {
     log.info("Deleting {}/{}", file.getGroupId(), file.getReference());
-    try {
-      fileService.delete(toPath(file));
-    } catch (IllegalArgumentException e) {
-      log.trace("Error when deleting {} on the filesystem (ignoring)", file.getReference(), e);
-    } finally {
-      fileRepository.delete(file);
-    }
+    fileService.delete(toPath(file));
+    fileRepository.delete(file);
   }
 
   @Override
@@ -76,20 +70,18 @@ public class PersistServiceImpl implements PersistService {
   }
 
   @Override
-  @Transactional(readOnly = true)
-  public File getLatestVersion(UUID reference) {
-    File file = findFile(reference).orElseThrow();
-    return fileRepository.getFirstByGroupIdOrderByVersionDesc(file.getGroupId());
-  }
-
-  @Override
   public String toPath(File file) {
     return FileServiceUtils.combine(file.getContext(), file.getReference().toString());
   }
 
+  private File getLatestVersion(UUID reference) {
+    File file = fileRepository.findByReference(reference).orElseThrow();
+    return fileRepository.getFirstByGroupIdOrderByVersionDesc(file.getGroupId());
+  }
+
   private File saveFile(String context, String name, InputStream inputStream, int version,
       UUID groupId) {
-    File file = new File();
+    var file = new File();
     file.setContext(context);
     file.setFilename(name);
     file.setVersion(version);

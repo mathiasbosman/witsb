@@ -16,8 +16,6 @@ public interface PersistService {
 
   Optional<File> findFile(UUID reference);
 
-  File getLatestVersion(UUID reference);
-
   Optional<File> findFile(UUID reference, int version);
 
   String toPath(File file);

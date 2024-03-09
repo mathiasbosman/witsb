@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doNothing;
 
+import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.ContainerTest;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileRecord;
@@ -17,7 +19,9 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
 class PersistServiceImplTest extends ContainerTest {
 
@@ -25,6 +29,8 @@ class PersistServiceImplTest extends ContainerTest {
   private PersistServiceImpl persistService;
   @Autowired
   private FileRepository fileRepository;
+  @MockBean
+  private FileService fileService;
 
   private static InputStream toInputstream(String content) {
     return new ByteArrayInputStream(content.getBytes());
@@ -73,9 +79,12 @@ class PersistServiceImplTest extends ContainerTest {
         .version(testFile.getVersion() + 1)
         .build();
     fileRepository.saveAll(List.of(testFile, testFile2));
+    ArgumentCaptor<String> pathCapture = ArgumentCaptor.forClass(String.class);
+    doNothing().when(fileService).delete(pathCapture.capture());
 
     persistService.deleteFile(testFile2.getReference());
 
+    assertEquals(persistService.toPath(testFile2), pathCapture.getValue());
     assertTrue(fileRepository.findById(testFile.getId()).isEmpty());
     assertTrue(fileRepository.findById(testFile2.getId()).isEmpty());
   }
@@ -97,24 +106,6 @@ class PersistServiceImplTest extends ContainerTest {
 
     assertTrue(persistService.findFile(testFile.getReference(), testFile.getVersion()).isPresent());
     assertTrue(persistService.findFile(testFile.getReference(), 99).isEmpty());
-  }
-
-  @Test
-  void getLatestVersion() {
-    File testFile = createMockFile();
-    File testFile2 = createMockFile().toBuilder()
-        .groupId(testFile.getGroupId())
-        .version(1)
-        .build();
-    File testFile3 = createMockFile().toBuilder()
-        .groupId(testFile.getGroupId())
-        .version(3)
-        .build();
-    fileRepository.saveAll(List.of(testFile, testFile2, testFile3));
-
-    assertEquals(3, persistService.getLatestVersion(testFile.getReference()).getVersion());
-    assertEquals(3, persistService.getLatestVersion(testFile2.getReference()).getVersion());
-    assertEquals(3, persistService.getLatestVersion(testFile3.getReference()).getVersion());
   }
 
   private File createMockFile() {

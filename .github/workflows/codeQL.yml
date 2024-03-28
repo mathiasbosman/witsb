@@ -19,6 +19,8 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
       - name: Testless build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B install -DskipTests
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

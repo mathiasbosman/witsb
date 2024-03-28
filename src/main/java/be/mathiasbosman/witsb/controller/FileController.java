@@ -15,7 +15,6 @@ import org.apache.commons.io.IOUtils;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -81,10 +80,10 @@ public class FileController {
     ContentDisposition disposition = ContentDisposition.attachment().filename(file.getFilename())
         .build();
     response.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposition.toString());
-    response.setHeader(HttpHeaders.CONTENT_TYPE, FileServiceUtils.getContentType(file.getFilename(),
-        MimeTypeUtils.APPLICATION_OCTET_STREAM_VALUE));
     InputStream inputStream = fileService.open(persistService.toPath(file));
     try {
+      response.setHeader(HttpHeaders.CONTENT_TYPE,
+          FileServiceUtils.getContentType(file.getFilename()));
       IOUtils.copy(inputStream, response.getOutputStream());
     } catch (IOException e) {
       log.error("Error writing to output stream for {}", file.getReference());

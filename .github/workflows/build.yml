@@ -16,6 +16,8 @@ jobs:
           distribution: adopt
           cache: maven
       - name: Build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B verify
       - name: Test report
         uses: dorny/test-reporter@v1

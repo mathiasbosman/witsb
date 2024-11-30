@@ -40,6 +40,7 @@ public class File {
   private int version = 0;
   @Column(nullable = false, updatable = false)
   private UUID groupId;
+  private boolean locked;
   @CreationTimestamp
   private Instant createdOn;
   @UpdateTimestamp

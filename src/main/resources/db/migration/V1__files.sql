@@ -6,6 +6,7 @@ CREATE TABLE files
     context    VARCHAR(255) NOT NULL,
     version    INT          NOT NULL,
     group_id   UUID         NOT NULL,
+    locked BOOLEAN NOT NULL,
     created_on TIMESTAMP    NOT NULL,
     updated_on TIMESTAMP    NOT NULL
 );

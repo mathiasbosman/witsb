@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.domain.File;
+import be.mathiasbosman.witsb.exception.EmptyFileException;
 import be.mathiasbosman.witsb.service.PersistServiceImpl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -72,8 +73,32 @@ class FileControllerTest {
   }
 
   @Test
+  void upload_emptyFile() throws Exception {
+    when(persistService.upload(any(), any(), any())).thenThrow(new EmptyFileException("foo"));
+
+    mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
+            .file(mockMultiPartFile()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void upload_largeFile() throws Exception {
+    byte[] largeFileContent = new byte[10 * 1024 * 1024]; // 10MB file
+    MockMultipartFile largeFile = new MockMultipartFile("file", "largefile.txt", "text/plain",
+        largeFileContent);
+
+    when(persistService.upload(any(), any(), any())).thenReturn(mockFile());
+
+    mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
+            .file(largeFile))
+        .andExpect(status().isOk());
+
+    verify(persistService).upload(eq("bar"), eq("file"), any(InputStream.class));
+  }
+
+  @Test
   void update() throws Exception {
-    final UUID mockReference = UUID.randomUUID();
+    UUID mockReference = UUID.randomUUID();
     when(persistService.updateFile(eq(mockReference), any(InputStream.class)))
         .thenReturn(mockFile());
 
@@ -86,9 +111,22 @@ class FileControllerTest {
   }
 
   @Test
-  void download() throws Exception {
-    final File mockFile = File.builder()
+  void update_emptyFile() throws Exception {
+    UUID mockReference = UUID.randomUUID();
+    when(persistService.updateFile(eq(mockReference), any(InputStream.class)))
+        .thenThrow(new EmptyFileException("foo"));
+
+    mvc.perform(MockMvcRequestBuilders.multipart("/api/" + mockReference)
+            .file(mockMultiPartFile())
+            .with(putRequest()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void download_unlocked() throws Exception {
+    File mockFile = File.builder()
         .filename("file.xml")
+        .locked(false)
         .build();
     mockDownload(mockFile);
 
@@ -103,11 +141,23 @@ class FileControllerTest {
   }
 
   @Test
+  void download_locked() throws Exception {
+    File mockFile = File.builder()
+        .filename("file.xml")
+        .locked(true)
+        .build();
+    mockDownload(mockFile);
+
+    mvc.perform(get("/api/" + mockFile.getReference()))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   void download_InternalServerError() throws Exception {
     try (MockedStatic<IOUtils> mockedIOUtils = Mockito.mockStatic(IOUtils.class)) {
       mockedIOUtils.when(() -> IOUtils.copy(any(InputStream.class), any(OutputStream.class)))
           .thenThrow(new IOException("Mocked IOException"));
-      final File mockFile = mockFile();
+      File mockFile = mockFile();
       mockDownload(mockFile);
 
       mvc.perform(get("/api/" + mockFile.getReference()))
@@ -125,7 +175,7 @@ class FileControllerTest {
 
   @Test
   void download_ByVersion() throws Exception {
-    final File mockFile = mockFile();
+    File mockFile = mockFile();
     mockDownload(mockFile);
     when(persistService.findFile(mockFile.getReference(), mockFile.getVersion()))
         .thenReturn(Optional.of(mockFile));
@@ -135,8 +185,14 @@ class FileControllerTest {
   }
 
   @Test
+  void download_invalidUUID() throws Exception {
+    mvc.perform(get("/api/invalid-uuid"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void delete() throws Exception {
-    final UUID mockReference = UUID.randomUUID();
+    UUID mockReference = UUID.randomUUID();
 
     mvc.perform(MockMvcRequestBuilders.delete("/api/" + mockReference));
 
@@ -144,10 +200,16 @@ class FileControllerTest {
   }
 
   @Test
+  void delete_invalidUUID() throws Exception {
+    mvc.perform(MockMvcRequestBuilders.delete("/api/invalid-uuid"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void listGroup() throws Exception {
-    final File fileA = mockFile();
-    final File fileB = mockFile();
-    final File fileC = mockFile();
+    File fileA = mockFile();
+    File fileB = mockFile();
+    File fileC = mockFile();
 
     when(persistService.getAllVersions(any()))
         .thenReturn(List.of(fileA, fileB, fileC));

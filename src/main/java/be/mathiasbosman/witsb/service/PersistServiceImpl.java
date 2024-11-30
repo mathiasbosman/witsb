@@ -3,7 +3,9 @@ package be.mathiasbosman.witsb.service;
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
+import be.mathiasbosman.witsb.exception.EmptyFileException;
 import be.mathiasbosman.witsb.repository.FileRepository;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
@@ -80,6 +82,9 @@ public class PersistServiceImpl implements PersistService {
 
   private File saveFile(String context, String name, InputStream inputStream, int version,
       UUID groupId) {
+
+    validateFile(inputStream);
+
     var file = new File();
     file.setContext(context);
     file.setFilename(name);
@@ -91,5 +96,15 @@ public class PersistServiceImpl implements PersistService {
 
   private void saveToFs(File file, InputStream is) {
     fileService.save(is, toPath(file));
+  }
+
+  private void validateFile(InputStream inputStream) {
+    try {
+      if (inputStream.available() == 0) {
+        throw new EmptyFileException("The file is empty");
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Error checking InputStream availability");
+    }
   }
 }

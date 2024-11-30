@@ -62,7 +62,13 @@ public class FileController {
         ? persistService.findFile(reference, version)
         : persistService.findFile(reference);
 
-    file.ifPresentOrElse(f -> this.writeFileStream(f, response), () -> {
+    file.ifPresentOrElse(f -> {
+      if (!f.isLocked()) {
+        writeFileStream(f, response);
+      } else {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+      }
+    }, () -> {
       log.error("No file found for {}(v.{})", reference, version);
       response.setStatus(HttpStatus.NOT_FOUND.value());
     });

@@ -6,12 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.ContainerTest;
 import be.mathiasbosman.witsb.domain.File;
+import be.mathiasbosman.witsb.exception.EmptyFileException;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -37,13 +41,13 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void upload() {
-    final File record = persistService.upload("contextA", "a.txt", toInputstream("content"));
+    File record = persistService.upload("contextA", "a.txt", toInputstream("content"));
 
     assertEquals("contextA", record.getContext());
     assertEquals("a.txt", record.getFilename());
     assertEquals(0, record.getVersion());
 
-    final File file = fileRepository.findByReference(record.getReference()).orElseThrow();
+    File file = fileRepository.findByReference(record.getReference()).orElseThrow();
 
     assertNotNull(file.getId());
     assertNotNull(file.getGroupId());
@@ -53,19 +57,30 @@ class PersistServiceImplTest extends ContainerTest {
   }
 
   @Test
+  void upload_emptyFile() {
+    InputStream emptyStream = toInputstream("");
+
+    assertThrows(EmptyFileException.class,
+        () -> persistService.upload("contextA", "a.txt", emptyStream));
+  }
+
+  @Test
   void updateFile() {
-    final File testFile = createMockFile();
+    File testFile = createMockFile();
     fileRepository.save(testFile);
-    final File notPersisted = createMockFile();
-    final File newFile = persistService.updateFile(testFile.getReference(),
-        toInputstream("new content"));
-    final File updatedFile = fileRepository.findByReference(newFile.getReference()).orElseThrow();
+    File newFile = persistService.updateFile(testFile.getReference(), toInputstream("new content"));
+    File updatedFile = fileRepository.findByReference(newFile.getReference()).orElseThrow();
 
     assertEquals(testFile.getGroupId(), updatedFile.getGroupId());
     assertEquals(testFile.getVersion() + 1, updatedFile.getVersion());
     assertNotEquals(testFile.getReference(), updatedFile.getReference());
+  }
+
+  @Test
+  void updateFile_notFound() {
     InputStream is = toInputstream("foo");
-    UUID notPersistedRef = notPersisted.getReference();
+    UUID notPersistedRef = UUID.randomUUID();
+
     assertThrows(NoSuchElementException.class,
         () -> persistService.updateFile(notPersistedRef, is));
   }
@@ -110,15 +125,27 @@ class PersistServiceImplTest extends ContainerTest {
   @Test
   void getAllVersions() {
     UUID mockGroupId = UUID.randomUUID();
-    final File file0 = createMockFile(mockGroupId, 0);
-    final File file1 = createMockFile(mockGroupId, 1);
-    final File file2 = createMockFile(mockGroupId, 2);
-    final File file3 = createMockFile(mockGroupId, 3);
+    File file0 = createMockFile(mockGroupId, 0);
+    File file1 = createMockFile(mockGroupId, 1);
+    File file2 = createMockFile(mockGroupId, 2);
+    File file3 = createMockFile(mockGroupId, 3);
     fileRepository.saveAll(List.of(file3, file2, file0, file1));
 
     List<File> allVersions = persistService.getAllVersions(mockGroupId);
 
     assertEquals(List.of(file0, file1, file2, file3), allVersions);
+  }
+
+  @Test
+  void validateFile_failure() {
+    try (InputStream mockIs = mock(InputStream.class)) {
+      when(mockIs.available()).thenThrow(new IOException("Mock IOException"));
+
+      assertThrows(RuntimeException.class,
+          () -> persistService.upload("contextA", "a.txt", mockIs));
+    } catch (IOException e) {
+      // no op
+    }
   }
 
   private File createMockFile(UUID groupId, int version) {

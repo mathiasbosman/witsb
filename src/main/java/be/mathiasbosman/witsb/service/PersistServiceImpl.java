@@ -27,7 +27,7 @@ public class PersistServiceImpl implements PersistService {
   @Override
   @Transactional
   public File upload(String context, String name, InputStream inputStream) {
-    return saveFile(context, name, inputStream, 0, UUID.randomUUID());
+    return saveFile(context, name, inputStream, 0, UUID.randomUUID(), null);
   }
 
   @Override
@@ -35,7 +35,7 @@ public class PersistServiceImpl implements PersistService {
   public File updateFile(UUID reference, InputStream inputStream) {
     final File latestFile = getLatestVersion(reference);
     return saveFile(latestFile.getContext(), latestFile.getFilename(), inputStream,
-        latestFile.getVersion() + 1, latestFile.getGroupId());
+        latestFile.getVersion() + 1, latestFile.getGroupId(), latestFile.getLockGroupId());
   }
 
   @Override
@@ -49,6 +49,22 @@ public class PersistServiceImpl implements PersistService {
     log.info("Deleting {}/{}", file.getGroupId(), file.getReference());
     fileService.delete(toPath(file));
     fileRepository.delete(file);
+  }
+
+  @Transactional
+  public File uploadAndLock(UUID lockedGroupId, InputStream inputStream) {
+    return saveFile(lockedGroupId.toString(),
+        UUID.randomUUID().toString(),
+        inputStream,
+        0,
+        UUID.randomUUID(),
+        lockedGroupId);
+  }
+
+  @Transactional
+  public void unlock(UUID lockGroupId) {
+    fileRepository.getByLockGroupId(lockGroupId)
+        .forEach(file -> file.setLocked(false));
   }
 
   @Override
@@ -81,8 +97,7 @@ public class PersistServiceImpl implements PersistService {
   }
 
   private File saveFile(String context, String name, InputStream inputStream, int version,
-      UUID groupId) {
-
+      UUID groupId, UUID lockedGroupId) {
     validateFile(inputStream);
 
     var file = new File();
@@ -90,6 +105,8 @@ public class PersistServiceImpl implements PersistService {
     file.setFilename(name);
     file.setVersion(version);
     file.setGroupId(groupId);
+    file.setLockGroupId(lockedGroupId);
+    file.setLocked(lockedGroupId != null);
     saveToFs(file, inputStream);
     return fileRepository.save(file);
   }

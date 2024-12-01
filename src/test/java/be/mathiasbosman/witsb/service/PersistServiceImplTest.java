@@ -1,10 +1,7 @@
 package be.mathiasbosman.witsb.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -12,6 +9,7 @@ import static org.mockito.Mockito.when;
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.ContainerTest;
 import be.mathiasbosman.witsb.domain.File;
+import be.mathiasbosman.witsb.domain.FileMother;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.ByteArrayInputStream;
@@ -43,37 +41,60 @@ class PersistServiceImplTest extends ContainerTest {
   void upload() {
     File record = persistService.upload("contextA", "a.txt", toInputstream("content"));
 
-    assertEquals("contextA", record.getContext());
-    assertEquals("a.txt", record.getFilename());
-    assertEquals(0, record.getVersion());
+    assertThat(record.getContext()).isEqualTo("contextA");
+    assertThat(record.getFilename()).isEqualTo("a.txt");
+    assertThat(record.getVersion()).isZero();
 
     File file = fileRepository.findByReference(record.getReference()).orElseThrow();
 
-    assertNotNull(file.getId());
-    assertNotNull(file.getGroupId());
-    assertEquals(file.getReference(), record.getReference());
-    assertEquals(file.getVersion(), record.getVersion());
-    assertEquals(file.getContext(), record.getContext());
+    assertThat(file.getId()).isNotNull();
+    assertThat(file.getGroupId()).isNotNull();
+    assertThat(file.getReference()).isEqualTo(record.getReference());
+    assertThat(file.getVersion()).isEqualTo(record.getVersion());
+    assertThat(file.getContext()).isEqualTo(record.getContext());
+    assertThat(file.isLocked()).isFalse();
+  }
+
+  @Test
+  void uploadAndLock() {
+    File file = persistService.uploadAndLock(UUID.randomUUID(), toInputstream("content"));
+
+    assertThat(file.isLocked()).isTrue();
+    assertThat(file.getLockGroupId()).isNotNull();
+  }
+
+  @Test
+  void unlock() {
+    UUID lockGroupId = UUID.randomUUID();
+    File fileA = persistService.uploadAndLock(lockGroupId, toInputstream("content"));
+    File fileB = persistService.uploadAndLock(lockGroupId, toInputstream("content_b"));
+
+    persistService.unlock(lockGroupId);
+
+    assertThat(fileA.isLocked()).isFalse();
+    assertThat(fileB.isLocked()).isFalse();
   }
 
   @Test
   void upload_emptyFile() {
     InputStream emptyStream = toInputstream("");
 
-    assertThrows(EmptyFileException.class,
-        () -> persistService.upload("contextA", "a.txt", emptyStream));
+    assertThatThrownBy(() -> persistService.upload("contextA", "a.txt", emptyStream))
+        .isInstanceOf(EmptyFileException.class);
   }
 
   @Test
   void updateFile() {
-    File testFile = createMockFile();
+    File testFile = FileMother.random();
     fileRepository.save(testFile);
     File newFile = persistService.updateFile(testFile.getReference(), toInputstream("new content"));
     File updatedFile = fileRepository.findByReference(newFile.getReference()).orElseThrow();
 
-    assertEquals(testFile.getGroupId(), updatedFile.getGroupId());
-    assertEquals(testFile.getVersion() + 1, updatedFile.getVersion());
-    assertNotEquals(testFile.getReference(), updatedFile.getReference());
+    assertThat(updatedFile.getGroupId()).isEqualTo(testFile.getGroupId());
+    assertThat(updatedFile.getVersion()).isEqualTo(testFile.getVersion() + 1);
+    assertThat(updatedFile.getReference()).isNotEqualTo(testFile.getReference());
+    assertThat(updatedFile.isLocked()).isEqualTo(testFile.isLocked());
+    assertThat(updatedFile.getLockGroupId()).isEqualTo(testFile.getLockGroupId());
   }
 
   @Test
@@ -81,59 +102,57 @@ class PersistServiceImplTest extends ContainerTest {
     InputStream is = toInputstream("foo");
     UUID notPersistedRef = UUID.randomUUID();
 
-    assertThrows(NoSuchElementException.class,
-        () -> persistService.updateFile(notPersistedRef, is));
+    assertThatThrownBy(() -> persistService.updateFile(notPersistedRef, is))
+        .isInstanceOf(NoSuchElementException.class);
   }
 
   @Test
   void deleteFile() {
-    final File testFile = createMockFile();
-    final File testFile2 = createMockFile().toBuilder()
-        .groupId(testFile.getGroupId())
-        .version(testFile.getVersion() + 1)
-        .build();
+    File testFile = FileMother.random();
+    File testFile2 = FileMother.of(testFile.getGroupId(), testFile.getVersion() + 1);
     fileRepository.saveAll(List.of(testFile, testFile2));
     ArgumentCaptor<String> pathCapture = ArgumentCaptor.forClass(String.class);
     doNothing().when(fileService).delete(pathCapture.capture());
 
     persistService.deleteFile(testFile2.getReference());
 
-    assertEquals(persistService.toPath(testFile2), pathCapture.getValue());
-    assertTrue(fileRepository.findById(testFile.getId()).isEmpty());
-    assertTrue(fileRepository.findById(testFile2.getId()).isEmpty());
+    assertThat(pathCapture.getValue()).isEqualTo(persistService.toPath(testFile2));
+    assertThat(fileRepository.findById(testFile.getId())).isEmpty();
+    assertThat(fileRepository.findById(testFile2.getId())).isEmpty();
   }
 
   @Test
   void findFile() {
-    final File testFile = createMockFile();
+    File testFile = FileMother.random();
     fileRepository.save(testFile);
 
     Optional<File> result = persistService.findFile(testFile.getReference());
-    assertTrue(result.isPresent());
-    assertEquals(testFile.getReference(), result.get().getReference());
+    assertThat(result).isPresent()
+        .hasValueSatisfying(
+            file -> assertThat(file.getReference()).isEqualTo(testFile.getReference()));
   }
 
   @Test
   void findFile_ByVersion() {
-    final File testFile = createMockFile();
+    File testFile = FileMother.random();
     fileRepository.save(testFile);
 
-    assertTrue(persistService.findFile(testFile.getReference(), testFile.getVersion()).isPresent());
-    assertTrue(persistService.findFile(testFile.getReference(), 99).isEmpty());
+    assertThat(persistService.findFile(testFile.getReference(), testFile.getVersion())).isPresent();
+    assertThat(persistService.findFile(testFile.getReference(), 99)).isEmpty();
   }
 
   @Test
   void getAllVersions() {
     UUID mockGroupId = UUID.randomUUID();
-    File file0 = createMockFile(mockGroupId, 0);
-    File file1 = createMockFile(mockGroupId, 1);
-    File file2 = createMockFile(mockGroupId, 2);
-    File file3 = createMockFile(mockGroupId, 3);
+    File file0 = FileMother.of(mockGroupId, 0);
+    File file1 = FileMother.of(mockGroupId, 1);
+    File file2 = FileMother.of(mockGroupId, 2);
+    File file3 = FileMother.of(mockGroupId, 3);
     fileRepository.saveAll(List.of(file3, file2, file0, file1));
 
     List<File> allVersions = persistService.getAllVersions(mockGroupId);
 
-    assertEquals(List.of(file0, file1, file2, file3), allVersions);
+    assertThat(allVersions).containsExactly(file0, file1, file2, file3);
   }
 
   @Test
@@ -141,23 +160,11 @@ class PersistServiceImplTest extends ContainerTest {
     try (InputStream mockIs = mock(InputStream.class)) {
       when(mockIs.available()).thenThrow(new IOException("Mock IOException"));
 
-      assertThrows(RuntimeException.class,
-          () -> persistService.upload("contextA", "a.txt", mockIs));
+      assertThatThrownBy(() -> persistService.upload("contextA", "a.txt", mockIs))
+          .isInstanceOf(RuntimeException.class);
     } catch (IOException e) {
       // no op
     }
   }
 
-  private File createMockFile(UUID groupId, int version) {
-    return File.builder()
-        .context("foo")
-        .groupId(groupId)
-        .version(version)
-        .filename("bar")
-        .build();
-  }
-
-  private File createMockFile() {
-    return createMockFile(UUID.randomUUID(), 0);
-  }
 }

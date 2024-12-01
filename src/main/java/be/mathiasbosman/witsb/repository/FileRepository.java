@@ -20,4 +20,6 @@ public interface FileRepository extends PagingAndSortingRepository<File, UUID>,
   List<File> getByGroupId(UUID groupId, Sort sort);
 
   List<File> getByGroupId(UUID groupId);
+
+  List<File> getByLockGroupId(UUID lockGroupId);
 }

@@ -4,7 +4,7 @@ import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileRecord;
-import be.mathiasbosman.witsb.service.PersistService;
+import be.mathiasbosman.witsb.service.PersistServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,7 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class FileController {
 
-  private final PersistService persistService;
+  private final PersistServiceImpl persistService;
   private final FileService fileService;
 
   @PostMapping(value = "/{context}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -43,6 +43,20 @@ public class FileController {
       throws IOException {
     return FileRecord.fromEntity(
         persistService.upload(context, multipartFile.getName(), multipartFile.getInputStream()));
+  }
+
+  @PostMapping(value = "/lock", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public FileRecord lock(@RequestParam(name = "lockedGroupid") UUID lockedGroupId,
+      @RequestParam("file") MultipartFile multipartFile) throws IOException {
+    return FileRecord.fromEntity(
+        persistService.uploadAndLock(lockedGroupId, multipartFile.getInputStream()));
+  }
+
+  @PostMapping("/unlock/{lockGroupId}")
+  public HttpStatus unlock(@PathVariable UUID lockGroupId) {
+    persistService.unlock(lockGroupId);
+    //todo websocket!
+    return HttpStatus.ACCEPTED;
   }
 
   @PutMapping(value = "/{reference}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

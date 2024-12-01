@@ -41,6 +41,7 @@ public class File {
   @Column(nullable = false, updatable = false)
   private UUID groupId;
   private boolean locked;
+  private UUID lockGroupId;
   @CreationTimestamp
   private Instant createdOn;
   @UpdateTimestamp

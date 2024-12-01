@@ -3,13 +3,17 @@ package be.mathiasbosman.witsb.service;
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
-import be.mathiasbosman.witsb.domain.FileRecord;
+import be.mathiasbosman.witsb.exception.EmptyFileException;
+import be.mathiasbosman.witsb.exception.WitsbException;
 import be.mathiasbosman.witsb.repository.FileRepository;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,45 +25,47 @@ public class PersistServiceImpl implements PersistService {
   private final FileService fileService;
   private final FileRepository fileRepository;
 
-  static FileRecord fromEntity(File file) {
-    return new FileRecord(file.getFilename(), file.getContext(), file.getReference(),
-        file.getVersion());
+  @Override
+  @Transactional
+  public File upload(String context, String name, InputStream inputStream) {
+    return saveFile(context, name, inputStream, 0, UUID.randomUUID(), null);
   }
 
   @Override
   @Transactional
-  public FileRecord upload(String context, String name, InputStream inputStream) {
-    File file = saveFile(context, name, inputStream, 0, UUID.randomUUID());
-    return fromEntity(file);
-  }
-
-  @Override
-  @Transactional
-  public FileRecord updateFile(UUID reference, InputStream inputStream) {
-    File latestlFile = getLatestVersion(reference);
-    int newVersion = latestlFile.getVersion() + 1;
-    File newFile = saveFile(latestlFile.getContext(), latestlFile.getFilename(), inputStream,
-        newVersion, latestlFile.getGroupId());
-    return fromEntity(newFile);
+  public File updateFile(UUID reference, InputStream inputStream) {
+    final File latestFile = getLatestVersion(reference);
+    return saveFile(latestFile.getContext(), latestFile.getFilename(), inputStream,
+        latestFile.getVersion() + 1, latestFile.getGroupId(), latestFile.getLockGroupId());
   }
 
   @Override
   @Transactional
   public void deleteFile(UUID reference) {
-    File file = findFile(reference).orElseThrow();
-    fileRepository.findByGroupId(file.getGroupId())
-        .forEach(this::delete);
+    final File file = fileRepository.findByReference(reference).orElseThrow();
+    fileRepository.getByGroupId(file.getGroupId()).forEach(this::delete);
   }
 
   private void delete(File file) {
     log.info("Deleting {}/{}", file.getGroupId(), file.getReference());
-    try {
-      fileService.delete(toPath(file));
-    } catch (IllegalArgumentException e) {
-      log.trace("Error when deleting {} on the filesystem (ignoring)", file.getReference(), e);
-    } finally {
-      fileRepository.delete(file);
-    }
+    fileService.delete(toPath(file));
+    fileRepository.delete(file);
+  }
+
+  @Transactional
+  public File uploadAndLock(UUID lockedGroupId, InputStream inputStream) {
+    return saveFile(lockedGroupId.toString(),
+        UUID.randomUUID().toString(),
+        inputStream,
+        0,
+        UUID.randomUUID(),
+        lockedGroupId);
+  }
+
+  @Transactional
+  public void unlock(UUID lockGroupId) {
+    fileRepository.getByLockGroupId(lockGroupId)
+        .forEach(file -> file.setLocked(false));
   }
 
   @Override
@@ -71,15 +77,8 @@ public class PersistServiceImpl implements PersistService {
   @Override
   @Transactional(readOnly = true)
   public Optional<File> findFile(UUID reference, int version) {
-    File file = fileRepository.findByReference(reference).orElseThrow();
+    final File file = fileRepository.findByReference(reference).orElseThrow();
     return fileRepository.findByGroupIdAndVersion(file.getGroupId(), version);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public File getLatestVersion(UUID reference) {
-    File file = findFile(reference).orElseThrow();
-    return fileRepository.getFirstByGroupIdOrderByVersionDesc(file.getGroupId());
   }
 
   @Override
@@ -87,18 +86,43 @@ public class PersistServiceImpl implements PersistService {
     return FileServiceUtils.combine(file.getContext(), file.getReference().toString());
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public List<File> getAllVersions(UUID groupId) {
+    return fileRepository.getByGroupId(groupId, Sort.by("version"));
+  }
+
+  private File getLatestVersion(UUID reference) {
+    final File file = fileRepository.findByReference(reference).orElseThrow();
+    return fileRepository.getFirstByGroupIdOrderByVersionDesc(file.getGroupId());
+  }
+
   private File saveFile(String context, String name, InputStream inputStream, int version,
-      UUID groupId) {
-    File file = new File();
+      UUID groupId, UUID lockedGroupId) {
+    validateFile(inputStream);
+
+    var file = new File();
     file.setContext(context);
     file.setFilename(name);
     file.setVersion(version);
     file.setGroupId(groupId);
+    file.setLockGroupId(lockedGroupId);
+    file.setLocked(lockedGroupId != null);
     saveToFs(file, inputStream);
     return fileRepository.save(file);
   }
 
   private void saveToFs(File file, InputStream is) {
     fileService.save(is, toPath(file));
+  }
+
+  private void validateFile(InputStream inputStream) {
+    try {
+      if (inputStream.available() == 0) {
+        throw new EmptyFileException("The file is empty");
+      }
+    } catch (IOException e) {
+      throw new WitsbException("Error checking InputStream availability");
+    }
   }
 }

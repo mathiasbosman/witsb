@@ -11,6 +11,7 @@ import be.mathiasbosman.witsb.ContainerTest;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileMother;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
+import be.mathiasbosman.witsb.exception.WitsbException;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -109,7 +110,7 @@ class PersistServiceImplTest extends ContainerTest {
   @Test
   void deleteFile() {
     File testFile = FileMother.random();
-    File testFile2 = FileMother.of(testFile.getGroupId(), testFile.getVersion() + 1);
+    File testFile2 = FileMother.withVersion(testFile.getGroupId(), testFile.getVersion() + 1);
     fileRepository.saveAll(List.of(testFile, testFile2));
     ArgumentCaptor<String> pathCapture = ArgumentCaptor.forClass(String.class);
     doNothing().when(fileService).delete(pathCapture.capture());
@@ -144,10 +145,10 @@ class PersistServiceImplTest extends ContainerTest {
   @Test
   void getAllVersions() {
     UUID mockGroupId = UUID.randomUUID();
-    File file0 = FileMother.of(mockGroupId, 0);
-    File file1 = FileMother.of(mockGroupId, 1);
-    File file2 = FileMother.of(mockGroupId, 2);
-    File file3 = FileMother.of(mockGroupId, 3);
+    File file0 = FileMother.withVersion(mockGroupId, 0);
+    File file1 = FileMother.withVersion(mockGroupId, 1);
+    File file2 = FileMother.withVersion(mockGroupId, 2);
+    File file3 = FileMother.withVersion(mockGroupId, 3);
     fileRepository.saveAll(List.of(file3, file2, file0, file1));
 
     List<File> allVersions = persistService.getAllVersions(mockGroupId);
@@ -161,7 +162,7 @@ class PersistServiceImplTest extends ContainerTest {
       when(mockIs.available()).thenThrow(new IOException("Mock IOException"));
 
       assertThatThrownBy(() -> persistService.upload("contextA", "a.txt", mockIs))
-          .isInstanceOf(RuntimeException.class);
+          .isInstanceOf(WitsbException.class);
     } catch (IOException e) {
       // no op
     }

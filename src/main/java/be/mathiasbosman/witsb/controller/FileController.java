@@ -18,6 +18,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,17 +47,17 @@ public class FileController {
   }
 
   @PostMapping(value = "/lock", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public FileRecord lock(@RequestParam(name = "lockedGroupid") UUID lockedGroupId,
+  public ResponseEntity<FileRecord> lock(@RequestParam(name = "lockedGroupId") UUID lockedGroupId,
       @RequestParam("file") MultipartFile multipartFile) throws IOException {
-    return FileRecord.fromEntity(
+    FileRecord record = FileRecord.fromEntity(
         persistService.uploadAndLock(lockedGroupId, multipartFile.getInputStream()));
+    return ResponseEntity.status(HttpStatus.ACCEPTED).body(record);
   }
 
   @PostMapping("/unlock/{lockGroupId}")
-  public HttpStatus unlock(@PathVariable UUID lockGroupId) {
+  public void unlock(@PathVariable UUID lockGroupId) {
     persistService.unlock(lockGroupId);
     //todo websocket!
-    return HttpStatus.ACCEPTED;
   }
 
   @PutMapping(value = "/{reference}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

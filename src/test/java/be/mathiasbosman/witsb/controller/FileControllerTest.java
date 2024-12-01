@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.domain.File;
+import be.mathiasbosman.witsb.domain.FileMother;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
 import be.mathiasbosman.witsb.service.PersistServiceImpl;
 import java.io.ByteArrayInputStream;
@@ -63,7 +65,7 @@ class FileControllerTest {
 
   @Test
   void upload() throws Exception {
-    when(persistService.upload(any(), any(), any())).thenReturn(mockFile());
+    when(persistService.upload(any(), any(), any())).thenReturn(FileMother.random());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
             .file(mockMultiPartFile()))
@@ -76,9 +78,10 @@ class FileControllerTest {
   void upload_emptyFile() throws Exception {
     when(persistService.upload(any(), any(), any())).thenThrow(new EmptyFileException("foo"));
 
-    mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
-            .file(mockMultiPartFile()))
-        .andExpect(status().isBadRequest());
+    mvc.perform(MockMvcRequestBuilders.multipart("/api/bar").file(mockMultiPartFile()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title", is("Empty file")))
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
   }
 
   @Test
@@ -87,7 +90,7 @@ class FileControllerTest {
     MockMultipartFile largeFile = new MockMultipartFile("file", "largefile.txt", "text/plain",
         largeFileContent);
 
-    when(persistService.upload(any(), any(), any())).thenReturn(mockFile());
+    when(persistService.upload(any(), any(), any())).thenReturn(FileMother.random());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
             .file(largeFile))
@@ -97,10 +100,34 @@ class FileControllerTest {
   }
 
   @Test
+  void lock() throws Exception {
+    UUID lockedGroupId = UUID.randomUUID();
+    when(persistService.uploadAndLock(eq(lockedGroupId), any())).thenReturn(FileMother.random());
+
+    mvc.perform(multipart("/api/lock")
+            .file(mockMultiPartFile())
+            .param("lockedGroupId", lockedGroupId.toString())
+            .contentType(MediaType.MULTIPART_FORM_DATA))
+        .andExpect(status().isAccepted());
+
+    verify(persistService).uploadAndLock(eq(lockedGroupId), any());
+  }
+
+  @Test
+  void unlock() throws Exception {
+    UUID lockGroupId = UUID.randomUUID();
+
+    mvc.perform(MockMvcRequestBuilders.post("/api/unlock/" + lockGroupId))
+        .andExpect(status().isOk());
+
+    verify(persistService).unlock(lockGroupId);
+  }
+
+  @Test
   void update() throws Exception {
     UUID mockReference = UUID.randomUUID();
     when(persistService.updateFile(eq(mockReference), any(InputStream.class)))
-        .thenReturn(mockFile());
+        .thenReturn(FileMother.random());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/" + mockReference)
             .file(mockMultiPartFile())
@@ -119,7 +146,9 @@ class FileControllerTest {
     mvc.perform(MockMvcRequestBuilders.multipart("/api/" + mockReference)
             .file(mockMultiPartFile())
             .with(putRequest()))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title", is("Empty file")))
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
   }
 
   @Test
@@ -157,7 +186,7 @@ class FileControllerTest {
     try (MockedStatic<IOUtils> mockedIOUtils = Mockito.mockStatic(IOUtils.class)) {
       mockedIOUtils.when(() -> IOUtils.copy(any(InputStream.class), any(OutputStream.class)))
           .thenThrow(new IOException("Mocked IOException"));
-      File mockFile = mockFile();
+      File mockFile = FileMother.random();
       mockDownload(mockFile);
 
       mvc.perform(get("/api/" + mockFile.getReference()))
@@ -175,7 +204,7 @@ class FileControllerTest {
 
   @Test
   void download_ByVersion() throws Exception {
-    File mockFile = mockFile();
+    File mockFile = FileMother.random();
     mockDownload(mockFile);
     when(persistService.findFile(mockFile.getReference(), mockFile.getVersion()))
         .thenReturn(Optional.of(mockFile));
@@ -207,9 +236,9 @@ class FileControllerTest {
 
   @Test
   void listGroup() throws Exception {
-    File fileA = mockFile();
-    File fileB = mockFile();
-    File fileC = mockFile();
+    File fileA = FileMother.random();
+    File fileB = FileMother.random();
+    File fileC = FileMother.random();
 
     when(persistService.getAllVersions(any()))
         .thenReturn(List.of(fileA, fileB, fileC));
@@ -220,12 +249,6 @@ class FileControllerTest {
         .andExpect(jsonPath("$[0].reference", is(fileA.getReference().toString())))
         .andExpect(jsonPath("$[1].reference", is(fileB.getReference().toString())))
         .andExpect(jsonPath("$[2].reference", is(fileC.getReference().toString())));
-  }
-
-  private File mockFile() {
-    return File.builder()
-        .filename("foo.txt")
-        .build();
   }
 
   private void mockDownload(File file) {

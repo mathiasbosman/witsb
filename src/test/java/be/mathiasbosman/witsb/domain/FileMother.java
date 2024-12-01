@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class FileMother {
 
-  public static File of(UUID groupId, int version) {
+  public static File withVersion(UUID groupId, int version) {
     return File.builder()
         .context("foo")
         .groupId(groupId)
@@ -15,8 +15,14 @@ public class FileMother {
         .build();
   }
 
+  public static File withFilename(String name) {
+    return File.builder()
+        .filename(name)
+        .build();
+  }
+
   public static File random() {
-    return of(UUID.randomUUID(), 0);
+    return withVersion(UUID.randomUUID(), 0);
   }
 
 }

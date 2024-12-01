@@ -4,6 +4,7 @@ import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
+import be.mathiasbosman.witsb.exception.WitsbException;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.IOException;
 import java.io.InputStream;
@@ -121,7 +122,7 @@ public class PersistServiceImpl implements PersistService {
         throw new EmptyFileException("The file is empty");
       }
     } catch (IOException e) {
-      throw new RuntimeException("Error checking InputStream availability");
+      throw new WitsbException("Error checking InputStream availability");
     }
   }
 }

@@ -4,6 +4,8 @@ import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileRecord;
+import be.mathiasbosman.witsb.domain.UnlockNotification;
+import be.mathiasbosman.witsb.service.NotificationService;
 import be.mathiasbosman.witsb.service.PersistServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -36,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class FileController {
 
   private final PersistServiceImpl persistService;
+  private final NotificationService notificationService;
   private final FileService fileService;
 
   @PostMapping(value = "/{context}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -56,8 +59,9 @@ public class FileController {
 
   @PostMapping("/unlock/{lockGroupId}")
   public void unlock(@PathVariable UUID lockGroupId) {
-    persistService.unlock(lockGroupId);
-    //todo websocket!
+    List<File> files = persistService.unlock(lockGroupId);
+    var notification = new UnlockNotification(files.stream().map(FileRecord::fromEntity).toList());
+    notificationService.notify(notification);
   }
 
   @PutMapping(value = "/{reference}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

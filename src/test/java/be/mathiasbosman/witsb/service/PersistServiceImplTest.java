@@ -70,8 +70,11 @@ class PersistServiceImplTest extends ContainerTest {
     File fileA = persistService.uploadAndLock(lockGroupId, toInputstream("content"));
     File fileB = persistService.uploadAndLock(lockGroupId, toInputstream("content_b"));
 
-    persistService.unlock(lockGroupId);
+    List<File> files = persistService.unlock(lockGroupId);
 
+    assertThat(files)
+        .hasSize(2)
+        .contains(fileA, fileB);
     assertThat(fileA.isLocked()).isFalse();
     assertThat(fileB.isLocked()).isFalse();
   }

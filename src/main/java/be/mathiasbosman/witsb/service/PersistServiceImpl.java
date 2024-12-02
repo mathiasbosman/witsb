@@ -63,9 +63,10 @@ public class PersistServiceImpl implements PersistService {
   }
 
   @Transactional
-  public void unlock(UUID lockGroupId) {
-    fileRepository.getByLockGroupId(lockGroupId)
-        .forEach(file -> file.setLocked(false));
+  public List<File> unlock(UUID lockGroupId) {
+    List<File> files = fileRepository.getByLockGroupId(lockGroupId);
+    files.forEach(file -> file.setLocked(false));
+    return files;
   }
 
   @Override

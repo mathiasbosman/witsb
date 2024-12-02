@@ -16,7 +16,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileMother;
+import be.mathiasbosman.witsb.domain.UnlockNotification;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
+import be.mathiasbosman.witsb.service.NotificationService;
 import be.mathiasbosman.witsb.service.PersistServiceImpl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -49,6 +51,8 @@ class FileControllerTest {
   private MockMvc mvc;
   @MockBean
   private FileService fileService;
+  @MockBean
+  private NotificationService notificationService;
   @MockBean
   private PersistServiceImpl persistService;
 
@@ -111,6 +115,7 @@ class FileControllerTest {
         .andExpect(status().isAccepted());
 
     verify(persistService).uploadAndLock(eq(lockedGroupId), any());
+
   }
 
   @Test
@@ -121,6 +126,7 @@ class FileControllerTest {
         .andExpect(status().isOk());
 
     verify(persistService).unlock(lockGroupId);
+    verify(notificationService).notify(any(UnlockNotification.class));
   }
 
   @Test

@@ -23,6 +23,10 @@ public class TestController {
   private final NotificationService notificationService;
 
 
+  /**
+   * Mock endpoint for testing notifications.
+   */
+  @Deprecated // so it doesn't get used in production
   @PostMapping("/notification")
   public void testNotification() {
     UUID id = UUID.randomUUID();

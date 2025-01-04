@@ -10,7 +10,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-  public static String WS_TOPIC = "/topic";
+  public static final String WS_TOPIC = "/topic";
 
   @Override
   public void registerStompEndpoints(StompEndpointRegistry registry) {

@@ -2,6 +2,7 @@ package be.mathiasbosman.witsb.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -81,10 +82,12 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void upload_emptyFile() {
-    InputStream emptyStream = toInputstream("");
-
-    assertThatThrownBy(() -> persistService.upload("contextA", "a.txt", emptyStream))
-        .isInstanceOf(EmptyFileException.class);
+    try (InputStream emptyStream = toInputstream("")) {
+      assertThatThrownBy(() -> persistService.upload("contextA", "a.txt", emptyStream))
+          .isInstanceOf(EmptyFileException.class);
+    } catch (IOException e) {
+      fail("IOException should not be thrown");
+    }
   }
 
   @Test
@@ -103,11 +106,14 @@ class PersistServiceImplTest extends ContainerTest {
 
   @Test
   void updateFile_notFound() {
-    InputStream is = toInputstream("foo");
-    UUID notPersistedRef = UUID.randomUUID();
+    try (InputStream is = toInputstream("foo")) {
+      UUID notPersistedRef = UUID.randomUUID();
 
-    assertThatThrownBy(() -> persistService.updateFile(notPersistedRef, is))
-        .isInstanceOf(NoSuchElementException.class);
+      assertThatThrownBy(() -> persistService.updateFile(notPersistedRef, is))
+          .isInstanceOf(NoSuchElementException.class);
+    } catch (IOException e) {
+      fail("IOException should not be thrown");
+    }
   }
 
   @Test

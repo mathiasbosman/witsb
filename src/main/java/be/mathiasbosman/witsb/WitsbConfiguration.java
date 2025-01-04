@@ -12,10 +12,15 @@ import org.springframework.context.annotation.Profile;
 
 @Slf4j
 @Configuration
-public class WitsbConfig {
+@Profile("local")
+public class WitsbConfiguration {
 
+  /**
+   * Creates a local file service for testing purposes.
+   *
+   * @return a {@link NioFileService} instance
+   */
   @Bean
-  @Profile("local")
   public FileService testFileService() {
     final FileSystem fileSystem = NioFileService.DEFAULT_FILE_SYSTEM;
     final Path tempDir = fileSystem.getPath("target/" + UUID.randomUUID() + "/");

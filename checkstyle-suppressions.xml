@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE suppressions PUBLIC
+  "-//Checkstyle//DTD SuppressionFilter Configuration 1.0//EN"
+  "https://checkstyle.org/dtds/suppressions_1_0.dtd">
+
+<suppressions>
+  <suppress checks="JavadocPackage"
+    files="."/>
+
+  <!-- Spring Boot Application files get detected as utility classes and checkstyle wants them to
+   have a private constructor, but a constructor is required to run the application.
+   By convention application classes end with *Application -->
+  <suppress checks="HideUtilityClassConstructor" files=".*Application.java"/>
+
+  <!-- Spring JPA dismiss JavaDoc as most methods are self-explanatory -->
+  <suppress checks="JavadocMethod" files=".*Repository.java"/>
+
+  <!-- Spring controllers are dismissed from JavaDoc checks as they are self-explanatory -->
+  <suppress checks="JavadocMethod" files=".*Controller.java"/>
+
+  <!-- Suppress for Spring Configuration classes -->
+  <suppress checks="DesignForExtension" files="."/>
+
+</suppressions>

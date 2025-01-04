@@ -52,6 +52,13 @@ public class PersistServiceImpl implements PersistService {
     fileRepository.delete(file);
   }
 
+  /**
+   * Upload a file into a lock group and lock it.
+   *
+   * @param lockedGroupId the locked group id
+   * @param inputStream   the input stream
+   * @return the uploaded file
+   */
   @Transactional
   public File uploadAndLock(UUID lockedGroupId, InputStream inputStream) {
     return saveFile(lockedGroupId.toString(),
@@ -62,6 +69,12 @@ public class PersistServiceImpl implements PersistService {
         lockedGroupId);
   }
 
+  /**
+   * Unlock a file group.
+   *
+   * @param lockGroupId the lock group id
+   * @return the list of unlocked files
+   */
   @Transactional
   public List<File> unlock(UUID lockGroupId) {
     List<File> files = fileRepository.getByLockGroupId(lockGroupId);

@@ -17,6 +17,7 @@ import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -26,10 +27,10 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
-class PersistServiceImplTest extends ContainerTest {
+class UploadServiceImplTest extends ContainerTest {
 
   @Autowired
-  private PersistServiceImpl persistService;
+  private UploadServiceImpl persistService;
   @Autowired
   private FileRepository fileRepository;
   @MockBean
@@ -129,6 +130,28 @@ class PersistServiceImplTest extends ContainerTest {
     assertThat(pathCapture.getValue()).isEqualTo(persistService.toPath(testFile2));
     assertThat(fileRepository.findById(testFile.getId())).isEmpty();
     assertThat(fileRepository.findById(testFile2.getId())).isEmpty();
+  }
+
+  @Test
+  void purgeFiles() {
+    LocalDateTime refDate = LocalDateTime.now();
+    File testFileA = FileMother.withUploadedOn(refDate);
+    File testFileB = FileMother.withUploadedOn(refDate.minusDays(1).minusSeconds(1));
+    File testFileC = FileMother.withUploadedOn(refDate.minusDays(2));
+    File testFileD = FileMother.withUploadedOn(refDate.plusDays(1));
+    ArgumentCaptor<String> pathCapture = ArgumentCaptor.forClass(String.class);
+    doNothing().when(fileService).delete(pathCapture.capture());
+    fileRepository.saveAll(List.of(testFileA, testFileB, testFileC, testFileD));
+
+    persistService.purgeFiles();
+
+    assertThat(fileRepository.findById(testFileA.getId())).isPresent();
+    assertThat(fileRepository.findById(testFileB.getId())).isEmpty();
+    assertThat(fileRepository.findById(testFileC.getId())).isEmpty();
+    assertThat(fileRepository.findById(testFileD.getId())).isPresent();
+    assertThat(pathCapture.getAllValues()).containsExactlyInAnyOrder(
+        persistService.toPath(testFileB),
+        persistService.toPath(testFileC));
   }
 
   @Test

@@ -1,4 +1,4 @@
-package be.mathiasbosman.witsb;
+package be.mathiasbosman.witsb.configuration;
 
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.service.nio.NioFileService;

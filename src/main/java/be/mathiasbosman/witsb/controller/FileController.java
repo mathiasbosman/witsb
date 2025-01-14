@@ -4,9 +4,9 @@ import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileRecord;
-import be.mathiasbosman.witsb.domain.UnlockNotification;
-import be.mathiasbosman.witsb.service.NotificationService;
-import be.mathiasbosman.witsb.service.PersistServiceImpl;
+import be.mathiasbosman.witsb.domain.WebSocketMessage;
+import be.mathiasbosman.witsb.service.UploadServiceImpl;
+import be.mathiasbosman.witsb.service.WebSocketService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,8 +37,10 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class FileController {
 
-  private final PersistServiceImpl persistService;
-  private final NotificationService notificationService;
+  static final String WS_TOPIC_UNLOCKED = "/unlocked";
+
+  private final UploadServiceImpl persistService;
+  private final WebSocketService notificationService;
   private final FileService fileService;
 
   @PostMapping(value = "/{context}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -60,8 +62,8 @@ public class FileController {
   @PostMapping("/unlock/{lockGroupId}")
   public void unlock(@PathVariable UUID lockGroupId) {
     List<File> files = persistService.unlock(lockGroupId);
-    var notification = new UnlockNotification(files.stream().map(FileRecord::fromEntity).toList());
-    notificationService.notify(notification);
+    WebSocketMessage wsMessage = new WebSocketMessage(WS_TOPIC_UNLOCKED + "/" + lockGroupId, files);
+    notificationService.sendMessage(wsMessage);
   }
 
   @PutMapping(value = "/{reference}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -72,6 +74,19 @@ public class FileController {
         persistService.updateFile(reference, multipartFile.getInputStream()));
   }
 
+  /**
+   * Download a file by reference and optional reference. The {@link HttpServletResponse} status
+   * gets adjusted accordingly:
+   * <ul>
+   *   <li>{@link HttpStatus#OK} if the file is found and not locked</li>
+   *   <li>{@link HttpStatus#UNAUTHORIZED} if the file is found but locked</li>
+   *   <li>{@link HttpStatus#NOT_FOUND} if the file is not found</li>
+   * </ul>
+   *
+   * @param reference the file reference
+   * @param version   (optional) the version
+   * @param response  the response to adjust
+   */
   @GetMapping("/{reference}")
   public void download(@PathVariable UUID reference,
       @RequestParam(name = "version", required = false) Integer version,
@@ -88,7 +103,7 @@ public class FileController {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
       }
     }, () -> {
-      log.error("No file found for {}(v.{})", reference, version);
+      log.error("No file found for [{}] (v.{})", reference, version);
       response.setStatus(HttpStatus.NOT_FOUND.value());
     });
 
@@ -116,7 +131,7 @@ public class FileController {
       InputStream inputStream = fileService.open(persistService.toPath(file));
       IOUtils.copy(inputStream, response.getOutputStream());
     } catch (IOException e) {
-      log.error("Error writing to output stream for {}", file.getReference(), e);
+      log.error("Error writing to output stream for [{}]", file.getReference(), e);
       response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
     }
   }

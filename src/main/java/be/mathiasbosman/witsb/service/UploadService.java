@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface PersistService {
+public interface UploadService {
 
   /**
    * Upload a file.
@@ -39,7 +39,7 @@ public interface PersistService {
    *
    * @param reference the reference
    * @return the file
-   * @see PersistService#findFile(UUID, int)
+   * @see UploadService#findFile(UUID, int)
    */
   Optional<File> findFile(UUID reference);
 
@@ -49,7 +49,7 @@ public interface PersistService {
    * @param reference the reference
    * @param version   the version
    * @return the file
-   * @see PersistService#findFile(UUID)
+   * @see UploadService#findFile(UUID)
    */
   Optional<File> findFile(UUID reference, int version);
 

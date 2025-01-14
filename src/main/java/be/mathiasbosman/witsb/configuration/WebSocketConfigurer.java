@@ -1,4 +1,4 @@
-package be.mathiasbosman.witsb;
+package be.mathiasbosman.witsb.configuration;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -8,7 +8,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+public class WebSocketConfigurer implements WebSocketMessageBrokerConfigurer {
 
   public static final String WS_TOPIC = "/topic";
 

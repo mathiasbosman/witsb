@@ -1,12 +1,11 @@
 package be.mathiasbosman.witsb.domain;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 
 public record FileRecord(String fileName, String context, UUID reference, int version,
-                         boolean locked, UUID lockGroupId,
-                         Instant created, Instant updated) {
+                         boolean locked, UUID lockGroupId, LocalDateTime uploaded) {
 
   /**
    * Converts a File entity to a FileRecord.
@@ -15,8 +14,13 @@ public record FileRecord(String fileName, String context, UUID reference, int ve
    * @return the converted record
    */
   public static FileRecord fromEntity(File file) {
-    return new FileRecord(file.getFilename(), file.getContext(), file.getReference(),
+    return new FileRecord(
+        file.getFilename(),
+        file.getContext(),
+        file.getReference(),
         file.getVersion(),
-        file.isLocked(), file.getLockGroupId(), file.getCreatedOn(), file.getUpdatedOn());
+        file.isLocked(),
+        file.getLockGroupId(),
+        file.getUploadedOn());
   }
 }

@@ -8,6 +8,7 @@ import be.mathiasbosman.witsb.exception.WitsbException;
 import be.mathiasbosman.witsb.repository.FileRepository;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PersistServiceImpl implements PersistService {
+public class UploadServiceImpl implements UploadService {
 
   private final FileService fileService;
   private final FileRepository fileRepository;
@@ -106,6 +107,13 @@ public class PersistServiceImpl implements PersistService {
     return fileRepository.getByGroupId(groupId, Sort.by("version"));
   }
 
+  @Transactional
+  public void purgeFiles() {
+    LocalDateTime checkpoint = LocalDateTime.now().minusDays(1);
+    log.trace("Purging files before [{}]", checkpoint);
+    fileRepository.findByUploadedOnBefore(checkpoint).forEach(this::delete);
+  }
+
   private File getLatestVersion(UUID reference) {
     final File file = fileRepository.findByReference(reference).orElseThrow();
     return fileRepository.getFirstByGroupIdOrderByVersionDesc(file.getGroupId());
@@ -113,15 +121,18 @@ public class PersistServiceImpl implements PersistService {
 
   private File saveFile(String context, String name, InputStream inputStream, int version,
       UUID groupId, UUID lockedGroupId) {
-    validateFile(inputStream);
+
+    validateInputStream(inputStream);
 
     var file = new File();
-    file.setContext(context);
     file.setFilename(name);
     file.setVersion(version);
+    file.setContext(context);
     file.setGroupId(groupId);
     file.setLockGroupId(lockedGroupId);
+    file.setReference(UUID.randomUUID());
     file.setLocked(lockedGroupId != null);
+    file.setUploadedOn(LocalDateTime.now());
     saveToFs(file, inputStream);
     return fileRepository.save(file);
   }
@@ -130,7 +141,7 @@ public class PersistServiceImpl implements PersistService {
     fileService.save(is, toPath(file));
   }
 
-  private void validateFile(InputStream inputStream) {
+  private void validateInputStream(InputStream inputStream) {
     try {
       if (inputStream.available() == 0) {
         throw new EmptyFileException("The file is empty");

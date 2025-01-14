@@ -1,5 +1,6 @@
 package be.mathiasbosman.witsb.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
@@ -16,10 +17,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.witsb.domain.File;
 import be.mathiasbosman.witsb.domain.FileMother;
-import be.mathiasbosman.witsb.domain.UnlockNotification;
+import be.mathiasbosman.witsb.domain.WebSocketMessage;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
-import be.mathiasbosman.witsb.service.NotificationService;
-import be.mathiasbosman.witsb.service.PersistServiceImpl;
+import be.mathiasbosman.witsb.service.UploadServiceImpl;
+import be.mathiasbosman.witsb.service.WebSocketService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +30,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,9 +55,12 @@ class FileControllerTest {
   @MockBean
   private FileService fileService;
   @MockBean
-  private NotificationService notificationService;
+  private WebSocketService webSocketService;
   @MockBean
-  private PersistServiceImpl persistService;
+  private UploadServiceImpl persistService;
+
+  @Captor
+  private ArgumentCaptor<WebSocketMessage> wsMessageCaptor;
 
   private static MockMultipartFile mockMultiPartFile() throws Exception {
     return new MockMultipartFile("file", "filename.txt", "text/plain", is);
@@ -126,7 +132,10 @@ class FileControllerTest {
         .andExpect(status().isOk());
 
     verify(persistService).unlock(lockGroupId);
-    verify(notificationService).notify(any(UnlockNotification.class));
+    verify(webSocketService).sendMessage(wsMessageCaptor.capture());
+
+    WebSocketMessage wsMessage = wsMessageCaptor.getValue();
+    assertThat(wsMessage.topic()).isEqualTo(FileController.WS_TOPIC_UNLOCKED + "/" + lockGroupId);
   }
 
   @Test
@@ -159,10 +168,7 @@ class FileControllerTest {
 
   @Test
   void download_unlocked() throws Exception {
-    File mockFile = File.builder()
-        .filename("file.xml")
-        .locked(false)
-        .build();
+    File mockFile = FileMother.withLocked("file.xml", false);
     mockDownload(mockFile);
 
     mvc.perform(get("/api/" + mockFile.getReference()))
@@ -177,10 +183,7 @@ class FileControllerTest {
 
   @Test
   void download_locked() throws Exception {
-    File mockFile = File.builder()
-        .filename("file.xml")
-        .locked(true)
-        .build();
+    File mockFile = FileMother.withLocked("file.xml", true);
     mockDownload(mockFile);
 
     mvc.perform(get("/api/" + mockFile.getReference()))

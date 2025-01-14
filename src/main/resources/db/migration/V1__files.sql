@@ -8,6 +8,7 @@ CREATE TABLE files
     group_id      UUID         NOT NULL,
     locked        BOOLEAN      NOT NULL,
     lock_group_id UUID,
+    uploaded_on TIMESTAMP NOT NULL,
     created_on    TIMESTAMP    NOT NULL,
     updated_on    TIMESTAMP    NOT NULL
 );

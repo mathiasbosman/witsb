@@ -1,6 +1,7 @@
 package be.mathiasbosman.witsb.repository;
 
 import be.mathiasbosman.witsb.domain.File;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,4 +23,7 @@ public interface FileRepository extends PagingAndSortingRepository<File, UUID>,
   List<File> getByGroupId(UUID groupId);
 
   List<File> getByLockGroupId(UUID lockGroupId);
+
+  List<File> findByUploadedOnBefore(LocalDateTime checkpoint);
+
 }

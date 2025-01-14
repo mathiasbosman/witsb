@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -97,7 +98,7 @@ public class UploadServiceImpl implements UploadService {
   }
 
   @Override
-  public String toPath(File file) {
+  public String toPath(@NonNull File file) {
     return FileServiceUtils.combine(file.getContext(), file.getReference().toString());
   }
 

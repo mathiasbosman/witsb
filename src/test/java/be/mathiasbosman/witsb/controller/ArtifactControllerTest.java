@@ -1,6 +1,5 @@
 package be.mathiasbosman.witsb.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,12 +14,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import be.mathiasbosman.fs.core.service.FileService;
-import be.mathiasbosman.witsb.domain.File;
-import be.mathiasbosman.witsb.domain.FileMother;
-import be.mathiasbosman.witsb.domain.WebSocketMessage;
+import be.mathiasbosman.witsb.domain.Artifact;
+import be.mathiasbosman.witsb.domain.ArtifactMother;
+import be.mathiasbosman.witsb.domain.EventPayload;
 import be.mathiasbosman.witsb.exception.EmptyFileException;
-import be.mathiasbosman.witsb.service.UploadServiceImpl;
-import be.mathiasbosman.witsb.service.WebSocketService;
+import be.mathiasbosman.witsb.service.ArtifactServiceImpl;
+import be.mathiasbosman.witsb.service.EventService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,7 +45,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest
-class FileControllerTest {
+class ArtifactControllerTest {
 
   private static final String mockContent = "some xml";
   private static final InputStream is = new ByteArrayInputStream(mockContent.getBytes());
@@ -55,12 +54,12 @@ class FileControllerTest {
   @MockBean
   private FileService fileService;
   @MockBean
-  private WebSocketService webSocketService;
+  private EventService eventService;
   @MockBean
-  private UploadServiceImpl persistService;
+  private ArtifactServiceImpl persistService;
 
   @Captor
-  private ArgumentCaptor<WebSocketMessage> wsMessageCaptor;
+  private ArgumentCaptor<EventPayload> wsMessageCaptor;
 
   private static MockMultipartFile mockMultiPartFile() throws Exception {
     return new MockMultipartFile("file", "filename.txt", "text/plain", is);
@@ -75,7 +74,7 @@ class FileControllerTest {
 
   @Test
   void upload() throws Exception {
-    when(persistService.upload(any(), any(), any())).thenReturn(FileMother.random());
+    when(persistService.upload(any(), any(), any())).thenReturn(ArtifactMother.random());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
             .file(mockMultiPartFile()))
@@ -100,7 +99,7 @@ class FileControllerTest {
     MockMultipartFile largeFile = new MockMultipartFile("file", "largefile.txt", "text/plain",
         largeFileContent);
 
-    when(persistService.upload(any(), any(), any())).thenReturn(FileMother.random());
+    when(persistService.upload(any(), any(), any())).thenReturn(ArtifactMother.random());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/bar")
             .file(largeFile))
@@ -112,7 +111,8 @@ class FileControllerTest {
   @Test
   void lock() throws Exception {
     UUID lockedGroupId = UUID.randomUUID();
-    when(persistService.uploadAndLock(eq(lockedGroupId), any())).thenReturn(FileMother.random());
+    when(persistService.uploadAndLock(eq(lockedGroupId), any())).thenReturn(
+            ArtifactMother.random());
 
     mvc.perform(multipart("/api/lock")
             .file(mockMultiPartFile())
@@ -132,17 +132,18 @@ class FileControllerTest {
         .andExpect(status().isOk());
 
     verify(persistService).unlock(lockGroupId);
-    verify(webSocketService).sendMessage(wsMessageCaptor.capture());
+    verify(eventService).sendMessage(wsMessageCaptor.capture());
 
-    WebSocketMessage wsMessage = wsMessageCaptor.getValue();
-    assertThat(wsMessage.topic()).isEqualTo(FileController.WS_TOPIC_UNLOCKED + "/" + lockGroupId);
+    EventPayload wsMessage = wsMessageCaptor.getValue();
+    assertThat(wsMessage.topic()).isEqualTo(
+            ArtifactController.WS_TOPIC_UNLOCKED + "/" + lockGroupId);
   }
 
   @Test
   void update() throws Exception {
     UUID mockReference = UUID.randomUUID();
     when(persistService.updateFile(eq(mockReference), any(InputStream.class)))
-        .thenReturn(FileMother.random());
+            .thenReturn(ArtifactMother.random());
 
     mvc.perform(MockMvcRequestBuilders.multipart("/api/" + mockReference)
             .file(mockMultiPartFile())
@@ -168,14 +169,14 @@ class FileControllerTest {
 
   @Test
   void download_unlocked() throws Exception {
-    File mockFile = FileMother.withLocked("file.xml", false);
-    mockDownload(mockFile);
+    Artifact mockArtifact = ArtifactMother.withLocked("file.xml", false);
+    mockDownload(mockArtifact);
 
-    mvc.perform(get("/api/" + mockFile.getReference()))
+    mvc.perform(get("/api/" + mockArtifact.getReference()))
         .andExpectAll(
             status().isOk(),
             header().string(HttpHeaders.CONTENT_DISPOSITION,
-                ContentDisposition.attachment().filename(mockFile.getFilename()).build()
+                    ContentDisposition.attachment().filename(mockArtifact.getFilename()).build()
                     .toString()),
             header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_XML_VALUE),
             content().contentType(MediaType.APPLICATION_XML));
@@ -183,10 +184,10 @@ class FileControllerTest {
 
   @Test
   void download_locked() throws Exception {
-    File mockFile = FileMother.withLocked("file.xml", true);
-    mockDownload(mockFile);
+    Artifact mockArtifact = ArtifactMother.withLocked("file.xml", true);
+    mockDownload(mockArtifact);
 
-    mvc.perform(get("/api/" + mockFile.getReference()))
+    mvc.perform(get("/api/" + mockArtifact.getReference()))
         .andExpect(status().isUnauthorized());
   }
 
@@ -195,10 +196,10 @@ class FileControllerTest {
     try (MockedStatic<IOUtils> mockedIOUtils = Mockito.mockStatic(IOUtils.class)) {
       mockedIOUtils.when(() -> IOUtils.copy(any(InputStream.class), any(OutputStream.class)))
           .thenThrow(new IOException("Mocked IOException"));
-      File mockFile = FileMother.random();
-      mockDownload(mockFile);
+      Artifact mockArtifact = ArtifactMother.random();
+      mockDownload(mockArtifact);
 
-      mvc.perform(get("/api/" + mockFile.getReference()))
+      mvc.perform(get("/api/" + mockArtifact.getReference()))
           .andExpect(status().isInternalServerError());
     }
   }
@@ -213,12 +214,12 @@ class FileControllerTest {
 
   @Test
   void download_ByVersion() throws Exception {
-    File mockFile = FileMother.random();
-    mockDownload(mockFile);
-    when(persistService.findFile(mockFile.getReference(), mockFile.getVersion()))
-        .thenReturn(Optional.of(mockFile));
+    Artifact mockArtifact = ArtifactMother.random();
+    mockDownload(mockArtifact);
+    when(persistService.findFile(mockArtifact.getReference(), mockArtifact.getVersion()))
+            .thenReturn(Optional.of(mockArtifact));
 
-    mvc.perform(get("/api/" + mockFile.getReference()).param("version", "0"))
+    mvc.perform(get("/api/" + mockArtifact.getReference()).param("version", "0"))
         .andExpect(status().isOk());
   }
 
@@ -245,24 +246,24 @@ class FileControllerTest {
 
   @Test
   void listGroup() throws Exception {
-    File fileA = FileMother.random();
-    File fileB = FileMother.random();
-    File fileC = FileMother.random();
+    Artifact artifactA = ArtifactMother.random();
+    Artifact artifactB = ArtifactMother.random();
+    Artifact artifactC = ArtifactMother.random();
 
     when(persistService.getAllVersions(any()))
-        .thenReturn(List.of(fileA, fileB, fileC));
+            .thenReturn(List.of(artifactA, artifactB, artifactC));
 
     mvc.perform(get("/api/group/" + UUID.randomUUID()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(3)))
-        .andExpect(jsonPath("$[0].reference", is(fileA.getReference().toString())))
-        .andExpect(jsonPath("$[1].reference", is(fileB.getReference().toString())))
-        .andExpect(jsonPath("$[2].reference", is(fileC.getReference().toString())));
+            .andExpect(jsonPath("$[0].reference", is(artifactA.getReference().toString())))
+            .andExpect(jsonPath("$[1].reference", is(artifactB.getReference().toString())))
+            .andExpect(jsonPath("$[2].reference", is(artifactC.getReference().toString())));
   }
 
-  private void mockDownload(File file) {
-    when(persistService.findFile(file.getReference()))
-        .thenReturn(Optional.of(file));
+  private void mockDownload(Artifact artifact) {
+    when(persistService.findFile(artifact.getReference()))
+            .thenReturn(Optional.of(artifact));
     when(persistService.toPath(any()))
         .thenReturn("path/to/file");
     when(fileService.open("path/to/file"))

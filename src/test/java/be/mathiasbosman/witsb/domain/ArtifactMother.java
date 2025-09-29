@@ -5,10 +5,10 @@ import java.util.UUID;
 import lombok.experimental.UtilityClass;
 
 @UtilityClass
-public class FileMother {
+public class ArtifactMother {
 
-  public static File random() {
-    File f = new File();
+  public static Artifact random() {
+    Artifact f = new Artifact();
     f.setReference(UUID.randomUUID());
     f.setContext("foo");
     f.setGroupId(UUID.randomUUID());
@@ -18,21 +18,21 @@ public class FileMother {
     return f;
   }
 
-  public static File withVersion(UUID groupId, int version) {
-    File f = random();
+  public static Artifact withVersion(UUID groupId, int version) {
+    Artifact f = random();
     f.setGroupId(groupId);
     f.setVersion(version);
     return f;
   }
 
-  public static File withUploadedOn(LocalDateTime uploadedOn) {
-    File f = random();
+  public static Artifact withUploadedOn(LocalDateTime uploadedOn) {
+    Artifact f = random();
     f.setUploadedOn(uploadedOn);
     return f;
   }
 
-  public static File withLocked(String fileName, boolean locked) {
-    File f = random();
+  public static Artifact withLocked(String fileName, boolean locked) {
+    Artifact f = random();
     f.setFilename(fileName);
     f.setLocked(locked);
     return f;

@@ -17,8 +17,8 @@ import lombok.Setter;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "files")
-public class File extends AbstractAuditedEntity {
+@Table(name = "artifacts")
+public class Artifact extends AbstractAuditedEntity {
 
   @Id
   @GeneratedValue

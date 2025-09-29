@@ -1,4 +1,4 @@
-CREATE TABLE files
+CREATE TABLE artifacts
 (
     id            UUID         NOT NULL,
     reference     UUID         NOT NULL,
@@ -13,10 +13,10 @@ CREATE TABLE files
     updated_on    TIMESTAMP    NOT NULL
 );
 
-ALTER TABLE files
+ALTER TABLE artifacts
     ADD PRIMARY KEY (id);
-ALTER TABLE files
+ALTER TABLE artifacts
     ADD CONSTRAINT UQ_PUBLIC_ID_CONTEXT UNIQUE (reference, context);
-ALTER TABLE files
+ALTER TABLE artifacts
     ADD CONSTRAINT UQ_VERSION_GROUP UNIQUE (version, group_id);
-CREATE INDEX IX_PUBLIC_ID ON files (reference);
+CREATE INDEX IX_PUBLIC_ID ON artifacts (reference);

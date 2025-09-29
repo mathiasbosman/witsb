@@ -1,12 +1,14 @@
 package be.mathiasbosman.witsb.service;
 
-import be.mathiasbosman.witsb.domain.File;
+import be.mathiasbosman.fs.core.util.FileServiceUtils;
+import be.mathiasbosman.witsb.domain.Artifact;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.NonNull;
 
-public interface UploadService {
+public interface ArtifactService {
 
   /**
    * Upload a file.
@@ -16,7 +18,7 @@ public interface UploadService {
    * @param inputStream the input stream
    * @return the uploaded file
    */
-  File upload(String context, String name, InputStream inputStream);
+  Artifact upload(String context, String name, InputStream inputStream);
 
   /**
    * Update a file.
@@ -25,7 +27,7 @@ public interface UploadService {
    * @param inputStream the input stream
    * @return the updated file
    */
-  File updateFile(UUID reference, InputStream inputStream);
+  Artifact updateFile(UUID reference, InputStream inputStream);
 
   /**
    * Delete a file.
@@ -39,9 +41,9 @@ public interface UploadService {
    *
    * @param reference the reference
    * @return the file
-   * @see UploadService#findFile(UUID, int)
+   * @see ArtifactService#findFile(UUID, int)
    */
-  Optional<File> findFile(UUID reference);
+  Optional<Artifact> findFile(UUID reference);
 
   /**
    * Find a file by reference and version.
@@ -49,17 +51,9 @@ public interface UploadService {
    * @param reference the reference
    * @param version   the version
    * @return the file
-   * @see UploadService#findFile(UUID)
+   * @see ArtifactService#findFile(UUID)
    */
-  Optional<File> findFile(UUID reference, int version);
-
-  /**
-   * Creates the path on the file system from a file.
-   *
-   * @param file the file
-   * @return the path
-   */
-  String toPath(File file);
+  Optional<Artifact> findFile(UUID reference, int version);
 
   /**
    * Get all versions via the group id.
@@ -67,5 +61,9 @@ public interface UploadService {
    * @param groupId the group id
    * @return the list of files
    */
-  List<File> getAllVersions(UUID groupId);
+  List<Artifact> getAllVersions(UUID groupId);
+
+  default String toPath(@NonNull Artifact artifact) {
+    return FileServiceUtils.combine(artifact.getContext(), artifact.getReference().toString());
+  }
 }

@@ -2,11 +2,11 @@ package be.mathiasbosman.witsb.controller;
 
 import be.mathiasbosman.fs.core.service.FileService;
 import be.mathiasbosman.fs.core.util.FileServiceUtils;
-import be.mathiasbosman.witsb.domain.File;
-import be.mathiasbosman.witsb.domain.FileRecord;
-import be.mathiasbosman.witsb.domain.WebSocketMessage;
-import be.mathiasbosman.witsb.service.UploadServiceImpl;
-import be.mathiasbosman.witsb.service.WebSocketService;
+import be.mathiasbosman.witsb.domain.Artifact;
+import be.mathiasbosman.witsb.domain.ArtifactDto;
+import be.mathiasbosman.witsb.service.ArtifactServiceImpl;
+import be.mathiasbosman.witsb.service.sse.ServerEventChannel;
+import be.mathiasbosman.witsb.service.sse.SseHub;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,48 +30,55 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Slf4j
 @RestController
 @RequestMapping("api")
 @RequiredArgsConstructor
-public class FileController {
+public class ArtifactController {
 
   static final String WS_TOPIC_UNLOCKED = "/unlocked";
 
-  private final UploadServiceImpl persistService;
-  private final WebSocketService notificationService;
+  private final ArtifactServiceImpl artifactService;
+  private final SseHub sseHub;
   private final FileService fileService;
 
+  @GetMapping(value = "/register/{uuid}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public SseEmitter register(@PathVariable UUID uuid) {
+    return sseHub.subscribe(uuid).orElseThrow(
+        () -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid subscription request"));
+  }
+
   @PostMapping(value = "/{context}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public FileRecord upload(@PathVariable String context,
+  public ArtifactDto upload(@PathVariable String context,
       @RequestParam("file") MultipartFile multipartFile)
       throws IOException {
-    return FileRecord.fromEntity(
-        persistService.upload(context, multipartFile.getName(), multipartFile.getInputStream()));
+    return ArtifactDto.fromEntity(
+        artifactService.upload(context, multipartFile.getName(), multipartFile.getInputStream()));
   }
 
   @PostMapping(value = "/lock", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<FileRecord> lock(@RequestParam(name = "lockedGroupId") UUID lockedGroupId,
+  public ResponseEntity<ArtifactDto> lock(@RequestParam(name = "lockedGroupId") UUID lockedGroupId,
       @RequestParam("file") MultipartFile multipartFile) throws IOException {
-    FileRecord record = FileRecord.fromEntity(
-        persistService.uploadAndLock(lockedGroupId, multipartFile.getInputStream()));
+    ArtifactDto record = ArtifactDto.fromEntity(
+        artifactService.uploadAndLock(lockedGroupId, multipartFile.getInputStream()));
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(record);
   }
 
   @PostMapping("/unlock/{lockGroupId}")
   public void unlock(@PathVariable UUID lockGroupId) {
-    List<File> files = persistService.unlock(lockGroupId);
-    WebSocketMessage wsMessage = new WebSocketMessage(WS_TOPIC_UNLOCKED + "/" + lockGroupId, files);
-    notificationService.sendMessage(wsMessage);
+    artifactService.unlock(lockGroupId);
+    sseHub.publish(new ServerEventChannel(lockGroupId), new UnlockEvent(lockGroupId));
   }
 
   @PutMapping(value = "/{reference}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public FileRecord update(@PathVariable UUID reference,
+  public ArtifactDto update(@PathVariable UUID reference,
       @RequestParam("file") MultipartFile multipartFile)
       throws IOException {
-    return FileRecord.fromEntity(
-        persistService.updateFile(reference, multipartFile.getInputStream()));
+    return ArtifactDto.fromEntity(
+        artifactService.updateFile(reference, multipartFile.getInputStream()));
   }
 
   /**
@@ -92,9 +99,9 @@ public class FileController {
       @RequestParam(name = "version", required = false) Integer version,
       HttpServletResponse response) {
 
-    Optional<File> file = version != null
-        ? persistService.findFile(reference, version)
-        : persistService.findFile(reference);
+    Optional<Artifact> file = version != null
+        ? artifactService.findFile(reference, version)
+        : artifactService.findFile(reference);
 
     file.ifPresentOrElse(f -> {
       if (!f.isLocked()) {
@@ -111,27 +118,28 @@ public class FileController {
 
   @DeleteMapping("/{reference}")
   public void delete(@PathVariable UUID reference) {
-    persistService.deleteFile(reference);
+    artifactService.deleteFile(reference);
   }
 
   @GetMapping("/group/{groupId}")
-  public List<FileRecord> listGroup(@PathVariable UUID groupId) {
-    return persistService.getAllVersions(groupId).stream()
-        .map(FileRecord::fromEntity)
+  public List<ArtifactDto> listGroup(@PathVariable UUID groupId) {
+    return artifactService.getAllVersions(groupId).stream()
+        .map(ArtifactDto::fromEntity)
         .toList();
   }
 
-  private void writeFileStream(File file, HttpServletResponse response) {
+  private void writeFileStream(Artifact artifact, HttpServletResponse response) {
     try {
-      ContentDisposition disposition = ContentDisposition.attachment().filename(file.getFilename())
+      ContentDisposition disposition = ContentDisposition.attachment()
+          .filename(artifact.getFilename())
           .build();
       response.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposition.toString());
       response.setHeader(HttpHeaders.CONTENT_TYPE,
-          FileServiceUtils.getContentType(file.getFilename()));
-      InputStream inputStream = fileService.open(persistService.toPath(file));
+          FileServiceUtils.getContentType(artifact.getFilename()));
+      InputStream inputStream = fileService.open(artifactService.toPath(artifact));
       IOUtils.copy(inputStream, response.getOutputStream());
     } catch (IOException e) {
-      log.error("Error writing to output stream for [{}]", file.getReference(), e);
+      log.error("Error writing to output stream for [{}]", artifact.getReference(), e);
       response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
     }
   }
